@@ -1,0 +1,70 @@
+@import url("https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "TT Hoves", "Inter", system-ui, sans-serif;
+  --font-display: "Audiowide", "TT Hoves", "Inter", sans-serif;
+  --shadow-card: 0 8px 24px rgba(27, 30, 63, 0.06);
+}
+
+:root {
+  --color-bg: #f1f3f4;
+  --color-unit: #ffffff;
+  --color-unit-2: #f1f3f4;
+  --color-primary: #2b2e48;
+  --color-secondary: #7d7d7d;
+  --color-highlight: #7b57e0;
+  --color-stroke: #dcdcdd;
+  --color-salmon: #f9837c;
+  --color-green: #50c099;
+  --color-yellow: #ffc565;
+  --color-blue: #5daaee;
+  --color-soft-lavender: #f3f2fc;
+  --color-deep-purple: #421c83;
+  --color-avatar-ring: #e6e5f9;
+  --color-success: #3e9c7a;
+  --color-success-bg: rgba(80, 192, 153, 0.18);
+  --color-chart-1: #6aa9ff;
+  --color-chart-2: #9c85ff;
+  --color-grid: #e4e7ec;
+}
+
+.dark {
+  --color-bg: #0d0f11;
+  --color-unit: #191d23;
+  --color-unit-2: #262c36;
+  --color-primary: #e3e3e3;
+  --color-secondary: #b8c0cc;
+  --color-highlight: #7b57e0;
+  --color-stroke: #576776;
+  --color-salmon: #f9837c;
+  --color-green: #47a785;
+  --color-yellow: #efb047;
+  --color-blue: #5395cf;
+  --color-soft-lavender: #262c36;
+  --color-deep-purple: #421c83;
+  --color-avatar-ring: #b8c0cc;
+  --color-success: #47a785;
+  --color-success-bg: rgba(71, 167, 133, 0.2);
+  --color-chart-1: #6aa9ff;
+  --color-chart-2: #9c85ff;
+  --color-grid: #2b3440;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-primary);
+    background: var(--color-bg);
+  }
+
+  button,
+  input,
+  select {
+    font-family: inherit;
+  }
+}
