@@ -1,97 +1,130 @@
 "use client";
 
 import React, { useState } from "react";
-import { useUIState, useActions } from "@ai-sdk/rsc";
-import type { AI } from "@/lib/genui/ai-state";
 import { Icon } from "@/components/ui/icons";
+import { ChatUIMessage } from "@/app/api/chat/route";
 
 interface ChatInterfaceProps {
   placeholder?: string;
   emptyStateMessage?: string;
   title?: string;
   embedded?: boolean;
+  messages: ChatUIMessage[];
+  sendMessage: (message: string | { role: "user"; content: string } | { text: string }) => Promise<string | null | undefined>;
+  status: string;
 }
 
 export function ChatInterface({ 
   placeholder = "Type a message...", 
   emptyStateMessage = "How can I help you today?",
   title,
-  embedded = false
+  embedded = false,
+  messages,
+  sendMessage,
+  status
 }: ChatInterfaceProps) {
-  const [inputValue, setInputValue] = useState("");
-  const [messages, setMessages] = useUIState<typeof AI>();
-  const { submitUserMessage } = useActions<typeof AI>();
-  const [isPending, setIsPending] = useState(false);
+  const [input, setInput] = useState("");
+  const isLoading = status === "submitted" || status === "streaming";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!input.trim()) return;
 
-    const value = inputValue;
-    setInputValue("");
-    setIsPending(true);
+    const value = input;
+    setInput("");
 
-    // Add user message immediately
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        id: Date.now().toString(),
-        role: "user",
-        display: <div className="mb-4 text-right text-sm font-medium text-[var(--color-primary)]">{value}</div>,
-      },
-    ]);
-
-    try {
-      const responseMessage = await submitUserMessage(value);
-      setMessages((currentMessages) => [...currentMessages, responseMessage]);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsPending(false);
-    }
+    await sendMessage({
+      text: value, 
+    }); 
   };
 
   return (
-    <div className={`flex flex-col h-full overflow-hidden ${embedded ? '' : 'rounded-[8px] bg-[var(--color-unit)] shadow-card h-[600px]'}`}>
+    <div className={`flex flex-col h-full overflow-hidden ${embedded ? '' : 'rounded-xl bg-white shadow-2xl border border-gray-200'}`}>
       {title && (
-        <div className="border-b border-[var(--color-stroke)] px-6 py-4">
-          <p className="text-lg font-medium text-[color:var(--color-primary)]">{title}</p>
+        <div className="border-b border-gray-100 px-6 py-4 bg-gray-50/50">
+          <p className="text-lg font-semibold text-gray-800">{title}</p>
         </div>
       )}
       
-      <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+      <div className="flex-1 overflow-y-auto p-6 scroll-smooth space-y-6">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-[var(--color-secondary)] opacity-60">
-            <Icon name="chat" className="mb-2 h-8 w-8" />
-            <p>{emptyStateMessage}</p>
+          <div className="flex h-full flex-col items-center justify-center text-gray-400">
+            <div className="p-4 bg-gray-50 rounded-full mb-4">
+              <Icon name="chat" className="h-8 w-8 text-gray-300" />
+            </div>
+            <p className="text-lg font-medium">{emptyStateMessage}</p>
           </div>
         ) : (
           messages.map((message) => (
             <div key={message.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {message.display}
+              
+              {message.parts?.map((part, index) => {
+                if (part.type === 'text') {
+                  return (
+                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-2`}>
+                       <div className={`max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${
+                         message.role === 'user' 
+                           ? 'bg-blue-600 text-white' 
+                           : 'bg-gray-100 text-gray-800 border border-gray-200'
+                       }`}>
+                         <div className="whitespace-pre-wrap text-sm leading-relaxed">{part.text}</div>
+                       </div>
+                    </div>
+                  );
+                }
+                
+                // Generative UI Logic (Notification only)
+                if (part.type === 'tool-render_dashboard') {
+                  if (part.state === 'output-available') {
+                    return (
+                      <div key={index} className="my-2 p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-2">
+                        <div className="p-1 bg-blue-100 rounded">
+                          <Icon name="layout" className="w-3 h-3 text-blue-600" />
+                        </div>
+                        <span className="text-xs text-blue-700 font-medium italic">
+                          Dashboard updated on canvas.
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                     <div key={index} className="my-2 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-200 animate-pulse flex items-center gap-2">
+                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                       <span className="text-xs text-gray-500 font-medium italic">Designing interface...</span>
+                     </div>
+                  );
+                }
+
+                return null;
+              })}
             </div>
           ))
         )}
-        {isPending && (
-           <div className="mb-4 text-sm text-[var(--color-secondary)] animate-pulse">
-             Thinking...
+        {isLoading && (
+           <div className="flex justify-start mb-4">
+             <div className="bg-gray-100 rounded-2xl px-5 py-3 flex items-center gap-2">
+               <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+               <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+               <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+             </div>
            </div>
         )}
       </div>
 
-      <div className="border-t border-[var(--color-stroke)] p-4">
-        <form onSubmit={handleSubmit} className="relative">
+      <div className="p-4 bg-white border-t border-gray-100">
+        <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto">
           <input
-            className="w-full rounded-full border border-[var(--color-stroke)] bg-[var(--color-unit-2)] py-3 pl-5 pr-12 text-sm text-[var(--color-primary)] placeholder:text-[var(--color-secondary)] focus:border-[var(--color-highlight)] focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-4 pl-5 pr-14 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all shadow-sm"
             placeholder={placeholder}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={isPending}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
           />
           <button
             type="submit"
-            disabled={!inputValue.trim() || isPending}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-highlight)] p-2 text-white transition-opacity disabled:opacity-50"
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors shadow-md"
           >
             <Icon name="chat" className="h-4 w-4" />
           </button>

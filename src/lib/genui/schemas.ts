@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Base Chart Configuration
-const ChartConfigSchema = z.object({
+export const ChartConfigSchema = z.object({
   component: z.enum(["SmartChart", "KPIGrid", "SmartTable"]),
   apiEndpoint: z.string().describe("The API endpoint to fetch data from (e.g., /api/github/usage)"),
   title: z.string().describe("The title of the chart or grid"),
@@ -31,6 +31,8 @@ const ChartConfigSchema = z.object({
     format: z.enum(["date", "currency", "status"]).optional()
   })).optional().describe("Required if component is SmartTable"),
 });
+
+export type ChartConfig = z.infer<typeof ChartConfigSchema>;
 
 // Discriminated Union for Layouts
 export const DashboardToolSchema = z.discriminatedUnion("layout", [

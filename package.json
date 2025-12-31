@@ -12,7 +12,6 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
     "@ai-sdk/react": "^3.0.3",
-    "@ai-sdk/rsc": "^2.0.3",
     "ai": "^6.0.3",
     "clsx": "^2.1.1",
     "mongoose": "^8.20.4",

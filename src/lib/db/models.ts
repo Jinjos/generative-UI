@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 const DailyUsageSchema = new Schema({
   date: { type: Date, required: true, unique: true },
