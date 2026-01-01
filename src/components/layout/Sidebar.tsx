@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Chevron, Icon } from "@/components/ui/icons";
 
 export interface NavItem {
@@ -6,6 +7,7 @@ export interface NavItem {
   icon: string;
   active?: boolean;
   badge?: string;
+  href?: string;
 }
 
 interface SidebarProps {
@@ -31,10 +33,14 @@ export const Sidebar = ({ navItems }: SidebarProps) => (
     <nav className="mt-4 space-y-2 px-4">
       {navItems.map((item) => {
         const itemColor = item.active ? "text-[color:var(--color-highlight)]" : "text-[color:var(--color-secondary)]";
+        // Simple href logic: /analytics for Analytics, / for Dashboard, # for others
+        const href = item.href || (item.label === "Analytics" ? "/analytics" : item.label === "Dashboard" ? "/" : "#");
+        
         return (
-          <div
+          <Link
             key={item.label}
-            className={`relative flex items-center gap-4 rounded-lg px-6 py-3 text-sm font-medium ${
+            href={href}
+            className={`relative flex items-center gap-4 rounded-lg px-6 py-3 text-sm font-medium hover:bg-gray-50 transition-colors ${
               item.active ? "bg-[var(--color-soft-lavender)]" : ""
             } ${itemColor}`}
           >
@@ -45,7 +51,7 @@ export const Sidebar = ({ navItems }: SidebarProps) => (
                 {item.badge}
               </span>
             ) : null}
-          </div>
+          </Link>
         );
       })}
     </nav>

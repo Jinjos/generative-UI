@@ -84,6 +84,12 @@ export const Icon = ({ name, className }: IconProps) => {
           <path className={common} d="M10 9l-3 3 3 3" />
         </svg>
       );
+    case "activity":
+      return (
+        <svg className={className} viewBox="0 0 24 24" strokeWidth="1.6">
+          <path className={common} d="M3 12h3l3-9 6 18 3-9h3" />
+        </svg>
+      );
     default:
       return null;
   }

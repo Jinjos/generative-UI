@@ -10,7 +10,8 @@ interface CopilotSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   messages: ChatUIMessage[];
-  sendMessage: (message: string | { role: "user"; content: string } | { text: string }) => Promise<string | null | undefined>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sendMessage: (message: any) => Promise<void>;
   status: string;
 }
 

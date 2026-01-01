@@ -34,6 +34,26 @@ export const ChartConfigSchema = z.object({
 
 export type ChartConfig = z.infer<typeof ChartConfigSchema>;
 
+// New: Header Stat Schema (Smart)
+export const HeaderStatSchema = z.object({
+  title: z.string().describe("Label for the stat (e.g., 'Total Users')"),
+  apiEndpoint: z.string().describe("The API endpoint to fetch the value from"),
+  dataKey: z.string().describe("The JSON key for the value (e.g., 'summary.active_users')"),
+  accent: z.string().describe("Hex color for the icon/accent"),
+  trendKey: z.string().optional().describe("Optional JSON key for the trend percentage"),
+  filter: z.string().optional().describe("Time filter label (e.g., 'Month')"),
+});
+
+// New: Side Panel Schema
+export const SidePanelSchema = z.object({
+  component: z.literal("Calendar"), // Expandable later
+  items: z.array(z.object({
+    title: z.string(),
+    time: z.string(),
+    color: z.string(),
+  })),
+});
+
 // Discriminated Union for Layouts
 export const DashboardToolSchema = z.discriminatedUnion("layout", [
   z.object({
@@ -44,6 +64,13 @@ export const DashboardToolSchema = z.discriminatedUnion("layout", [
     layout: z.literal("split"),
     leftChart: ChartConfigSchema,
     rightChart: ChartConfigSchema,
+  }),
+  // New Full Dashboard Layout
+  z.object({
+    layout: z.literal("dashboard"),
+    headerStats: z.array(HeaderStatSchema).max(4).optional(),
+    slotMain: ChartConfigSchema, // The center component
+    slotSide: SidePanelSchema.optional(), // The right panel
   }),
 ]);
 
