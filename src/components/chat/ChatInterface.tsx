@@ -56,51 +56,48 @@ export function ChatInterface({
             <p className="text-lg font-medium">{emptyStateMessage}</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div key={message.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              
-              {message.parts?.map((part, index) => {
-                if (part.type === 'text') {
-                  return (
-                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-2`}>
-                       <div className={`max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${
-                         message.role === 'user' 
-                           ? 'bg-blue-600 text-white' 
-                           : 'bg-gray-100 text-gray-800 border border-gray-200'
-                       }`}>
-                         <div className="whitespace-pre-wrap text-sm leading-relaxed">{part.text}</div>
-                       </div>
-                    </div>
-                  );
-                }
+          messages.map((message) => {
+            console.log(`[ChatDebug] Message ID: ${message.id}, Role: ${message.role}, Parts:`, message.parts);
+            return (
+              <div key={message.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col gap-2">
                 
-                // Generative UI Logic (Notification only)
-                if (part.type === 'tool-render_dashboard') {
-                  if (part.state === 'output-available') {
+                {message.parts?.map((part, index) => {
+                  console.log(`[ChatDebug] Part ${index}: type=${part.type}`);
+                  if (part.type === 'text' && part.text.trim()) {
                     return (
-                      <div key={index} className="my-2 p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-2">
-                        <div className="p-1 bg-blue-100 rounded">
-                          <Icon name="layout" className="w-3 h-3 text-blue-600" />
-                        </div>
-                        <span className="text-xs text-blue-700 font-medium italic">
-                          Dashboard updated on canvas.
-                        </span>
+                      <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                         <div className={`max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${
+                           message.role === 'user' 
+                             ? 'bg-blue-600 text-white' 
+                             : 'bg-white text-gray-800 border border-gray-100'
+                         }`}>
+                           <div className="whitespace-pre-wrap text-sm leading-relaxed">{part.text}</div>
+                         </div>
                       </div>
                     );
                   }
                   
-                  return (
-                     <div key={index} className="my-2 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-200 animate-pulse flex items-center gap-2">
-                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-                       <span className="text-xs text-gray-500 font-medium italic">Designing interface...</span>
-                     </div>
-                  );
-                }
+                  // Generative UI Logic (Notification only)
+                  if (part.type === 'tool-render_dashboard') {
+                    return (
+                      <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className="my-1 p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center gap-3 max-w-[85%]">
+                          <div className="p-1.5 bg-blue-100 rounded-lg">
+                            <Icon name="layout" className="w-3.5 h-3.5 text-blue-600" />
+                          </div>
+                          <span className="text-xs text-blue-700 font-medium">
+                            {part.state === 'output-available' ? "Dashboard updated on canvas" : "Designing interface..."}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
 
-                return null;
-              })}
-            </div>
-          ))
+                  return null;
+                })}
+              </div>
+            );
+          })
         )}
         {isLoading && (
            <div className="flex justify-start mb-4">

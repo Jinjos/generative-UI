@@ -60,13 +60,7 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
         </section>
 
         {/* Center Canvas */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1 min-h-[400px]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-800">{config.slotMain.title}</h3>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Dashboard View</span>
-          </div>
           {renderToolComponent(config.slotMain)}
-        </div>
       </div>
     );
   }

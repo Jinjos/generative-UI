@@ -37,11 +37,25 @@ export type ChatUIMessage = UIMessage<never, UIDataTypes, InferUITools<typeof to
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
+  const now = new Date();
+  const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+
   const result = streamText({
     model: openai("gpt-4o"),
     messages: await convertToModelMessages(messages),
-    system: SYSTEM_PROMPT,
+    system: `${SYSTEM_PROMPT}\n\n${dateContext}`,
     tools,
+    onFinish: ({ text, toolCalls, usage }) => {
+      console.log("=== AI DECISION TRACE ===");
+      console.log("Status: Stream Finished");
+      console.log("Usage:", usage);
+      if (toolCalls && toolCalls.length > 0) {
+        console.log("Tool Decision:", JSON.stringify(toolCalls, null, 2));
+      } else {
+        console.log("Response Text:", text);
+      }
+      console.log("=========================");
+    }
   });
 
   return result.toUIMessageStreamResponse();

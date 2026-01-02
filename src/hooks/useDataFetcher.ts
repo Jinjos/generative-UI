@@ -17,16 +17,20 @@ export function useDataFetcher<T>(url: string) {
     setError(null);
 
     const fetchData = async () => {
+      console.log(`[Hydration] Requesting: ${url}`);
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch");
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
         const json = await res.json();
+        
+        console.log(`[Hydration] Success from ${url}:`, json);
         
         if (isMounted) {
           setData(json);
           setLoading(false);
         }
       } catch (err) {
+        console.error(`[Hydration] Error fetching ${url}:`, err);
         if (isMounted) {
           setError(err instanceof Error ? err : new Error("Unknown error"));
           setLoading(false);

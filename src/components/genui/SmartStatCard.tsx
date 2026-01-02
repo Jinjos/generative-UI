@@ -24,7 +24,22 @@ export const SmartStatCard = ({
 }: SmartStatCardProps) => {
   const { data, loading, error } = useDataFetcher<Record<string, unknown>>(apiEndpoint);
 
-  const value = data ? String(getNestedValue(data, dataKey) ?? "0") : "...";
+  const rawValue = data ? getNestedValue(data, dataKey) : null;
+  
+  const formatValue = (val: unknown) => {
+    if (val === null || val === undefined) return "...";
+    const num = Number(val);
+    if (isNaN(num)) return String(val);
+    
+    // If the dataKey suggests a rate or the number is a small decimal, format as %
+    if (dataKey.includes("rate") || (num > 0 && num < 1)) {
+      return `${(num * 100).toFixed(1)}%`;
+    }
+    
+    return num.toLocaleString();
+  };
+
+  const value = formatValue(rawValue);
   const trend = trendKey && data ? String(getNestedValue(data, trendKey) ?? "") : null;
 
   if (error) {

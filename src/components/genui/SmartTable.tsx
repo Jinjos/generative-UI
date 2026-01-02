@@ -8,7 +8,7 @@ import { Chevron } from "@/components/ui/icons";
 interface ColumnDefinition {
   key: string;
   label: string;
-  format?: "date" | "currency" | "status";
+  format?: "date" | "currency" | "status" | "percentage" | "number";
 }
 
 interface SmartTableProps {
@@ -23,13 +23,31 @@ interface TableDataResponse {
   [key: string]: unknown;
 }
 
-const formatCell = (val: unknown, format?: string) => {
+const formatCell = (val: unknown, format?: string, columnKey?: string) => {
   if (val === undefined || val === null) return "-";
+  
+  // Auto-detect percentage based on key name or value range
+  const isPercentage = format === "percentage" || 
+                       (columnKey?.toLowerCase().includes("rate")) || 
+                       (columnKey?.toLowerCase().includes("efficiency"));
+
+  if (isPercentage) {
+    const num = Number(val);
+    return isNaN(num) ? String(val) : `${(num * 100).toFixed(1)}%`;
+  }
+
   if (format === "date") {
     const d = new Date(val as string | number | Date);
     return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
   }
+
   if (format === "currency") return typeof val === 'number' ? `$${val.toLocaleString()}` : String(val);
+
+  if (format === "number" || typeof val === 'number') {
+    const num = Number(val);
+    return isNaN(num) ? String(val) : num.toLocaleString();
+  }
+
   if (format === "status") {
     // Simple status chip logic
     return (
@@ -90,7 +108,7 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
               <tr key={i} className="border-b border-[color:var(--color-stroke)] hover:bg-[var(--color-bg)] transition-colors">
                 {columns.map((col) => (
                   <td key={`${i}-${col.key}`} className="px-4 py-3 text-[color:var(--color-primary)] whitespace-nowrap">
-                    {formatCell(getNestedValue(row, col.key), col.format)}
+                    {formatCell(getNestedValue(row, col.key), col.format, col.key)}
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right text-[color:var(--color-secondary)]">

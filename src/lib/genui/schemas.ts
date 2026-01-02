@@ -28,7 +28,7 @@ export const ChartConfigSchema = z.object({
   tableColumns: z.array(z.object({
     key: z.string().describe("The JSON key for the column data"),
     label: z.string().describe("Column Header Label"),
-    format: z.enum(["date", "currency", "status"]).optional()
+    format: z.enum(["number","percentage","date", "currency", "status"]).optional()
   })).optional().describe("Required if component is SmartTable"),
 });
 
