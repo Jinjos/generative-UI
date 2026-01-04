@@ -61,7 +61,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex w-full max-w-[1440px] h-screen overflow-hidden">
         <Sidebar navItems={navItems} />
         
-        <div className="flex-1 flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out" style={{ marginRight: isChatOpen ? '450px' : '0' }}>
+        <div className="flex-1 flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out" style={{ marginRight: isChatOpen ? '300px' : '0' }}>
           <main className="flex-1 px-6 py-6 lg:px-8 overflow-y-auto h-full flex flex-col">
             <TopBar 
               isDark={isDark} 

@@ -13,6 +13,7 @@ interface ChartSeries {
 interface SmartChartProps {
   apiEndpoint: string;
   title: string;
+  filter?: string;
   xAxisKey?: string;
   series?: ChartSeries[];
 }
@@ -25,6 +26,7 @@ interface ChartApiResponse {
 export function SmartChart({ 
   apiEndpoint, 
   title, 
+  filter,
   xAxisKey = "date",
   series = [
     { key: "estimated_hours_saved", label: "Hours Saved", color: "var(--color-chart-1)" },
@@ -69,7 +71,7 @@ export function SmartChart({
           </div>
         </div>
         <button className="rounded-full bg-[var(--color-bg)] px-3 py-1 text-xs text-[color:var(--color-secondary)]">
-          Month
+          {filter || "Period"}
         </button>
       </div>
 

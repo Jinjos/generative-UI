@@ -8,9 +8,7 @@ import { StatCard } from "@/components/ui/StatCard";
 interface KPIDefinition {
   key: string;
   label: string;
-  accent: string;
   format?: "number" | "currency" | "suffix_k";
-  trendKey?: string;
 }
 
 interface KPIDataResponse {
@@ -55,16 +53,12 @@ export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
       {definitions.map((def) => {
         const rawValue = getNestedValue(sourceData, def.key);
         const displayValue = formatValue(rawValue, def.format);
-        const trend = def.trendKey ? getNestedValue(sourceData, def.trendKey) : undefined;
-        const trendValue = typeof trend === 'number' ? `${trend > 0 ? '+' : ''}${trend}%` : undefined;
 
         return (
           <StatCard 
             key={def.label} 
             title={def.label}
             value={displayValue}
-            accent={def.accent}
-            trend={trendValue}
             filter={def.format === 'suffix_k' ? 'Total' : 'Avg'}
           />
         );

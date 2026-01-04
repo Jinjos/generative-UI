@@ -21,21 +21,21 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
     if (cfg.component === 'SmartTable') {
       return <SmartTable apiEndpoint={cfg.apiEndpoint} title={cfg.title} columns={cfg.tableColumns || []} />;
     }
-    return <SmartChart apiEndpoint={cfg.apiEndpoint} title={cfg.title} xAxisKey={cfg.xAxisKey} series={cfg.chartSeries} />;
+    return <SmartChart apiEndpoint={cfg.apiEndpoint} title={cfg.title} filter={cfg.filter} xAxisKey={cfg.xAxisKey} series={cfg.chartSeries} />;
   };
 
   // --- Initial Load State ---
   if (!config) {
     return (
-      <div className="h-full bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center min-h-[600px]">
-        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+      <div className="h-full bg-[var(--color-unit)] p-6 rounded-xl shadow-sm border border-[color:var(--color-stroke)] flex flex-col items-center justify-center text-center min-h-[600px]">
+        <div className="w-16 h-16 bg-[var(--color-soft-lavender)] rounded-full flex items-center justify-center mb-4">
           <span className="text-2xl">📊</span>
         </div>
-        <h3 className="text-lg font-semibold text-gray-800">Ready to Analyze</h3>
-        <p className="text-gray-500 mt-2 max-w-sm">
+        <h3 className="text-lg font-semibold text-[color:var(--color-primary)]">Ready to Analyze</h3>
+        <p className="text-[color:var(--color-secondary)] mt-2 max-w-sm text-sm">
           Open the Copilot chat on the right and ask for data visualization.
           <br/>
-          <span className="text-xs text-gray-400 mt-2 block">Try: Show me a full dashboard</span>
+          <span className="text-xs text-[color:var(--color-secondary)] opacity-70 mt-2 block">Try: Show me a full dashboard</span>
         </p>
       </div>
     );
@@ -46,7 +46,12 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
   // 1. Dashboard Layout (Stats + Main)
   if (config.layout === 'dashboard') {
     const statsCount = config.headerStats?.length || 0;
-    const gridCols = statsCount === 3 ? 'md:grid-cols-3' : statsCount === 2 ? 'md:grid-cols-2' : statsCount === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-4';
+    // Explicitly handle 1, 2, 3, or 4 items to fill the row perfectly
+    const gridCols = 
+      statsCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4' :
+      statsCount === 3 ? 'grid-cols-1 md:grid-cols-3' :
+      statsCount === 2 ? 'grid-cols-1 md:grid-cols-2' : 
+      'grid-cols-1';
 
     return (
       <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -68,11 +73,11 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
   // 2. Single Layout
   if (config.layout === 'single') {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in fade-in zoom-in duration-500 h-full min-h-[500px]">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800">{config.config.title}</h3>
-          <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Direct View</span>
-        </div>
+      <div>
+        {/* <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-[color:var(--color-primary)]">{config.config.title}</h3>
+          <span className="text-xs font-medium text-[color:var(--color-highlight)] bg-[var(--color-soft-lavender)] px-2 py-1 rounded-full">Direct View</span>
+        </div> */}
         {renderToolComponent(config.config)}
       </div>
     );
@@ -81,10 +86,10 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
   // 3. Split Layout
   if (config.layout === 'split') {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in fade-in zoom-in duration-500 h-full min-h-[500px]">
+      <div className="bg-[var(--color-unit)] p-6 rounded-xl shadow-sm border border-[color:var(--color-stroke)] animate-in fade-in zoom-in duration-500 h-full min-h-[500px]">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800">Comparison View</h3>
-          <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Side-by-Side</span>
+          <h3 className="text-lg font-semibold text-[color:var(--color-primary)]">Comparison View</h3>
+          <span className="text-xs font-medium text-[color:var(--color-highlight)] bg-[var(--color-soft-lavender)] px-2 py-1 rounded-full">Side-by-Side</span>
         </div>
         <SplitLayout 
           left={renderToolComponent(config.leftChart)}

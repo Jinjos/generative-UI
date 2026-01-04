@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Chevron } from "@/components/ui/icons";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
 import { getNestedValue } from "@/lib/utils/object";
 
@@ -9,8 +8,6 @@ interface SmartStatCardProps {
   title: string;
   apiEndpoint: string;
   dataKey: string;
-  accent: string;
-  trendKey?: string;
   filter?: string;
 }
 
@@ -18,29 +15,35 @@ export const SmartStatCard = ({
   title, 
   apiEndpoint, 
   dataKey, 
-  accent, 
-  trendKey, 
   filter 
 }: SmartStatCardProps) => {
   const { data, loading, error } = useDataFetcher<Record<string, unknown>>(apiEndpoint);
 
   const rawValue = data ? getNestedValue(data, dataKey) : null;
+  const numValue = rawValue !== null ? Number(rawValue) : null;
+  const isPercentage = !!(
+    numValue !== null && 
+    !isNaN(numValue) && 
+    (dataKey.toLowerCase().includes("rate") || dataKey.toLowerCase().includes("percent") || (numValue > 0 && numValue <= 1))
+  );
   
   const formatValue = (val: unknown) => {
     if (val === null || val === undefined) return "...";
     const num = Number(val);
     if (isNaN(num)) return String(val);
     
-    // If the dataKey suggests a rate or the number is a small decimal, format as %
-    if (dataKey.includes("rate") || (num > 0 && num < 1)) {
+    if (isPercentage) {
       return `${(num * 100).toFixed(1)}%`;
     }
     
-    return num.toLocaleString();
+    // Large numbers
+    if (num > 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num > 1000) return `${(num / 1000).toFixed(1)}k`;
+
+    return num.toLocaleString(undefined, { maximumFractionDigits: 1 });
   };
 
   const value = formatValue(rawValue);
-  const trend = trendKey && data ? String(getNestedValue(data, trendKey) ?? "") : null;
 
   if (error) {
     return (
@@ -51,35 +54,41 @@ export const SmartStatCard = ({
   }
 
   return (
-    <div className={`rounded-[8px] bg-[var(--color-unit)] p-5 shadow-card transition-opacity duration-300 ${loading ? 'opacity-50' : 'opacity-100'}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${accent}1A`, color: accent }}
-          >
-            <div className="h-5 w-5 rounded-full border-2 border-current" />
-          </div>
-          <div>
-            <p className="text-sm text-[color:var(--color-secondary)]">{title}</p>
-            <p className="text-xl font-medium text-[color:var(--color-primary)]">
-              {loading ? "..." : value}
-            </p>
-          </div>
-        </div>
-        {trend ? (
-          <span className="rounded-full bg-[var(--color-success-bg)] px-2 py-1 text-xs text-[color:var(--color-success)]">
-            {trend}
-          </span>
-        ) : filter ? (
-          <span className="rounded-full bg-[var(--color-unit-2)] px-2 py-1 text-xs text-[color:var(--color-secondary)]">
+    <div className={`flex flex-col justify-between h-full rounded-[12px] bg-[var(--color-unit)] p-5 shadow-card transition-all duration-300 hover:shadow-lg ${loading ? 'opacity-50' : 'opacity-100'}`}>
+      
+      {/* Header: Label + Action */}
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-xs font-semibold text-[color:var(--color-secondary)] uppercase tracking-wide">
+          {title}
+        </p>
+      </div>
+
+      {/* Hero Value */}
+      <div className="flex items-baseline gap-2 mb-4">
+        <p className="text-3xl font-bold text-[color:var(--color-primary)] tracking-tight">
+          {loading ? "..." : value}
+        </p>
+      </div>
+
+      {/* Footer: Progress Bar (Sync'd) + Context */}
+      <div className="mt-auto pt-2 border-t border-gray-50 flex items-center justify-between">
+         {isPercentage && numValue !== null ? (
+           <div className="h-1 flex-1 bg-gray-100 rounded-full overflow-hidden mr-3">
+              <div 
+                className="h-full bg-[var(--color-highlight)] transition-all duration-1000 ease-out" 
+                style={{ width: `${Math.min(100, Math.max(0, numValue * 100))}%` }}
+              ></div>
+           </div>
+         ) : (
+           <div className="flex-1" /> 
+         )}
+         
+         {filter && (
+          <span className="text-[10px] font-medium text-[color:var(--color-secondary)] bg-[var(--color-unit-2)] px-2 py-1 rounded-full whitespace-nowrap">
             {filter}
           </span>
-        ) : null}
+         )}
       </div>
-      <button className="mt-4 flex items-center gap-1 text-sm text-[color:var(--color-highlight)]">
-        View All <Chevron className="h-4 w-4" />
-      </button>
     </div>
   );
 };

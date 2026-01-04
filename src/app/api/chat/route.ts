@@ -39,6 +39,7 @@ export async function POST(req: Request) {
 
   const now = new Date();
   const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+  console.log("🔍 [Server] Date Context injected into prompt:", dateContext);
 
   const result = streamText({
     model: openai("gpt-4o"),

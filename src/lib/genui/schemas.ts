@@ -5,15 +5,14 @@ export const ChartConfigSchema = z.object({
   component: z.enum(["SmartChart", "KPIGrid", "SmartTable"]),
   apiEndpoint: z.string().describe("The API endpoint to fetch data from (e.g., /api/github/usage)"),
   title: z.string().describe("The title of the chart or grid"),
+  filter: z.string().optional().describe("Optional time period label (e.g., '15 Days', 'Month')"),
   description: z.string().optional().describe("A brief description for the user"),
   
   // KPI Config
   kpiDefinitions: z.array(z.object({
     key: z.string().describe("The JSON key in the response summary object (e.g., 'total_hours_saved')"),
     label: z.string().describe("The human-readable label (e.g., 'Hours Saved')"),
-    accent: z.string().describe("Hex color code for the accent"),
     format: z.enum(["number", "currency", "suffix_k"]).optional(),
-    trendKey: z.string().optional().describe("Key for trend percentage if available")
   })).optional().describe("Required only if component is KPIGrid"),
   
   // Chart Config
@@ -39,19 +38,7 @@ export const HeaderStatSchema = z.object({
   title: z.string().describe("Label for the stat (e.g., 'Total Users')"),
   apiEndpoint: z.string().describe("The API endpoint to fetch the value from"),
   dataKey: z.string().describe("The JSON key for the value (e.g., 'summary.active_users')"),
-  accent: z.string().describe("Hex color for the icon/accent"),
-  trendKey: z.string().optional().describe("Optional JSON key for the trend percentage"),
   filter: z.string().optional().describe("Time filter label (e.g., 'Month')"),
-});
-
-// New: Side Panel Schema
-export const SidePanelSchema = z.object({
-  component: z.literal("Calendar"), // Expandable later
-  items: z.array(z.object({
-    title: z.string(),
-    time: z.string(),
-    color: z.string(),
-  })),
 });
 
 // Discriminated Union for Layouts
@@ -70,7 +57,6 @@ export const DashboardToolSchema = z.discriminatedUnion("layout", [
     layout: z.literal("dashboard"),
     headerStats: z.array(HeaderStatSchema).max(4).optional(),
     slotMain: ChartConfigSchema, // The center component
-    slotSide: SidePanelSchema.optional(), // The right panel
   }),
 ]);
 
