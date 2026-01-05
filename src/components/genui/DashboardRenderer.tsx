@@ -6,6 +6,7 @@ import { KPIGrid } from "@/components/genui/KPIGrid";
 import { SmartTable } from "@/components/genui/SmartTable";
 import { SplitLayout } from "@/components/layout/SplitLayout";
 import { SmartStatCard } from "@/components/genui/SmartStatCard";
+import { CompareStatCard } from "@/components/genui/CompareStatCard";
 import type { DashboardTool, ChartConfig } from "@/lib/genui/schemas";
 
 interface DashboardRendererProps {
@@ -20,6 +21,9 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
     }
     if (cfg.component === 'SmartTable') {
       return <SmartTable apiEndpoint={cfg.apiEndpoint} title={cfg.title} columns={cfg.tableColumns || []} />;
+    }
+    if (cfg.component === 'CompareStatCard') {
+      return <CompareStatCard apiEndpoint={cfg.apiEndpoint} title={cfg.title} filter={cfg.filter} />;
     }
     return <SmartChart apiEndpoint={cfg.apiEndpoint} title={cfg.title} filter={cfg.filter} xAxisKey={cfg.xAxisKey} series={cfg.chartSeries} />;
   };
@@ -59,7 +63,11 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
         <section className="mb-6">
           <div className={`grid gap-6 ${gridCols}`}>
             {config.headerStats?.map((stat, i) => (
-              <SmartStatCard key={i} {...stat} />
+              stat.component === 'CompareStatCard' ? (
+                <CompareStatCard key={i} title={stat.title} apiEndpoint={stat.apiEndpoint} filter={stat.filter} />
+              ) : (
+                <SmartStatCard key={i} title={stat.title} apiEndpoint={stat.apiEndpoint} dataKey={stat.dataKey || ""} filter={stat.filter} />
+              )
             ))}
           </div>
         </section>

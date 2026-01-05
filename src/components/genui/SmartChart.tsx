@@ -79,17 +79,26 @@ export function SmartChart({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
-              {series.map((s) => (
-                <linearGradient key={s.key} id={`gradient-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={s.color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={s.color} stopOpacity={0} />
-                </linearGradient>
-              ))}
+              {series.map((s) => {
+                const safeId = `gradient-${s.key.replace(/\s+/g, "-")}`;
+                return (
+                  <linearGradient key={s.key} id={safeId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={s.color} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={s.color} stopOpacity={0} />
+                  </linearGradient>
+                );
+              })}
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-grid)" />
             <XAxis 
               dataKey={xAxisKey}
               tickFormatter={(val) => {
+                if (!val) return "";
+                // Handle YYYY-MM-DD
+                const parts = String(val).split("-");
+                if (parts.length === 3) {
+                  return `${parts[2]}/${parts[1]}`;
+                }
                 const d = new Date(val);
                 return isNaN(d.getTime()) ? val : `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`;
               }}
@@ -119,8 +128,9 @@ export function SmartChart({
                 dataKey={s.key} 
                 stroke={s.color}
                 fillOpacity={1} 
-                fill={`url(#gradient-${s.key})`} 
+                fill={`url(#gradient-${s.key.replace(/\s+/g, "-")})`} 
                 strokeWidth={2}
+                connectNulls
               />
             ))}
           </AreaChart>

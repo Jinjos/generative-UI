@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Base Chart Configuration
 export const ChartConfigSchema = z.object({
-  component: z.enum(["SmartChart", "KPIGrid", "SmartTable"]),
+  component: z.enum(["SmartChart", "KPIGrid", "SmartTable", "CompareStatCard"]),
   apiEndpoint: z.string().describe("The API endpoint to fetch data from (e.g., /api/github/usage)"),
   title: z.string().describe("The title of the chart or grid"),
   filter: z.string().optional().describe("Optional time period label (e.g., '15 Days', 'Month')"),
@@ -35,9 +35,10 @@ export type ChartConfig = z.infer<typeof ChartConfigSchema>;
 
 // New: Header Stat Schema (Smart)
 export const HeaderStatSchema = z.object({
+  component: z.enum(["SmartStatCard", "CompareStatCard"]).optional().default("SmartStatCard"),
   title: z.string().describe("Label for the stat (e.g., 'Total Users')"),
   apiEndpoint: z.string().describe("The API endpoint to fetch the value from"),
-  dataKey: z.string().describe("The JSON key for the value (e.g., 'summary.active_users')"),
+  dataKey: z.string().optional().describe("The JSON key for the value (Required for SmartStatCard)"),
   filter: z.string().optional().describe("Time filter label (e.g., 'Month')"),
 });
 
