@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { CopilotSidebar } from "@/components/layout/CopilotSidebar";
 import { useChatContext, ChatProvider } from "@/hooks/use-chat-context";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   label: string;
@@ -61,26 +62,38 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex w-full max-w-[1440px] h-screen overflow-hidden">
         <Sidebar navItems={navItems} />
         
-        <div className="flex-1 flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out" style={{ marginRight: isChatOpen ? '300px' : '0' }}>
-          <main className="flex-1 px-6 py-6 lg:px-8 overflow-y-auto h-full flex flex-col">
-            <TopBar 
-              isDark={isDark} 
-              onToggle={() => setIsDark(!isDark)} 
-              onChatToggle={() => setIsChatOpen(!isChatOpen)}
-            />
-            <div className="mt-6 flex-1">
-              {children}
-            </div>
-          </main>
-        </div>
+        {/* Main content and Copilot sidebar are now siblings in a flex container */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col h-full overflow-y-auto transition-all duration-300 ease-in-out">
+            <main className="flex-1 px-6 py-6 lg:px-8 flex flex-col">
+              <TopBar 
+                isDark={isDark} 
+                onToggle={() => setIsDark(!isDark)} 
+                onChatToggle={() => setIsChatOpen(!isChatOpen)}
+              />
+              <div className="mt-6 flex-1">
+                {children}
+              </div>
+            </main>
+          </div>
 
-        <CopilotSidebar 
-          isOpen={isChatOpen} 
-          onClose={() => setIsChatOpen(false)}
-          messages={messages}
-          sendMessage={sendMessage}
-          status={status}
-        />
+          {/* Copilot Sidebar Container */}
+          <div
+            className={cn(
+              "transition-all duration-300 ease-in-out",
+              isChatOpen ? "w-[350px] opacity-100" : "w-0 opacity-0"
+            )}
+          >
+            <CopilotSidebar 
+              isOpen={isChatOpen} 
+              onClose={() => setIsChatOpen(false)}
+              messages={messages}
+              sendMessage={sendMessage}
+              status={status}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

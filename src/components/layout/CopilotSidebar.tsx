@@ -16,41 +16,81 @@ interface CopilotSidebarProps {
 }
 
 export function CopilotSidebar({ isOpen, onClose, messages, sendMessage, status }: CopilotSidebarProps) {
+
   return (
+
     <div
+
       className={cn(
-        "fixed inset-y-0 right-0 z-50 w-[450px] transform bg-[var(--color-unit)] border-l border-[color:var(--color-stroke)] shadow-2xl transition-transform duration-300 ease-in-out",
-        isOpen ? "translate-x-0" : "translate-x-full"
+
+        "h-full w-full bg-[var(--color-unit)] border-l border-[color:var(--color-stroke)] shadow-2xl flex flex-col overflow-hidden",
+
+        // This component is now controlled by its parent's width, so we only handle visibility
+
+        isOpen ? "opacity-100" : "opacity-0" 
+
       )}
+
     >
+
       <div className="flex h-full flex-col">
+
         <div className="flex items-center justify-between border-b border-[color:var(--color-stroke)] px-6 py-4 bg-[var(--color-bg)]">
+
           <div className="flex items-center gap-2 text-[color:var(--color-primary)]">
+
             <div className="p-1.5 bg-[var(--color-soft-lavender)] rounded-md">
+
               <Icon name="chat" className="h-5 w-5 text-[color:var(--color-highlight)]" />
+
             </div>
+
             <span className="font-semibold">Copilot</span>
+
           </div>
+
           <button
+
             onClick={onClose}
+
             className="rounded-full p-2 text-[color:var(--color-secondary)] hover:bg-[var(--color-bg)] hover:text-[color:var(--color-primary)] transition-colors"
+
           >
+
             <Icon name="close" className="h-5 w-5" />
+
           </button>
+
         </div>
+
         
+
         <div className="flex-1 overflow-hidden bg-[var(--color-unit)]">
+
           <ChatInterface 
+
             title=""
+
             placeholder="Ask Copilot..."
+
             emptyStateMessage="I can help analyze your data."
+
             embedded={true}
+
             messages={messages}
+
             sendMessage={sendMessage}
+
             status={status}
+
           />
+
         </div>
+
       </div>
+
     </div>
+
   );
+
 }
