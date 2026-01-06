@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ChatUIMessage } from "@/app/api/chat/route";
 import { DashboardTool } from "@/lib/genui/schemas";
@@ -11,6 +11,7 @@ interface ChatContextType {
   sendMessage: (message: { text: string } | any) => Promise<void>;
   status: string;
   activeDashboard: DashboardTool | null;
+  setActiveDashboard: (dashboard: DashboardTool | null) => void;
   isChatOpen: boolean;
   setIsChatOpen: (open: boolean) => void;
   isDark: boolean;
@@ -29,6 +30,7 @@ const getInitialTheme = () => {
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { messages, status, sendMessage } = useChat<ChatUIMessage>();
 
+  const [activeDashboard, setActiveDashboard] = useState<DashboardTool | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -50,25 +52,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("theme", isDark ? "dark" : "light");
   }, [isDark, mounted]);
 
-  const activeDashboard = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (message.parts) {
-        for (const part of message.parts) {
-          if (part.type === 'tool-render_dashboard' && part.state === 'output-available') {
-            return part.output as DashboardTool;
-          }
-        }
-      }
-    }
-    return null;
-  }, [messages]);
-
   const value = {
     messages,
     sendMessage: sendMessage as (message: { text: string }) => Promise<void>, 
     status,
     activeDashboard,
+    setActiveDashboard,
     isChatOpen,
     setIsChatOpen,
     isDark,

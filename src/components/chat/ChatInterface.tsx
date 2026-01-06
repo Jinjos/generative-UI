@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Icon } from "@/components/ui/icons";
 import { ChatUIMessage } from "@/app/api/chat/route";
+import { useChatContext } from "@/hooks/use-chat-context";
+import { DashboardTool } from "@/lib/genui/schemas";
 
 interface ChatInterfaceProps {
   placeholder?: string;
@@ -25,7 +27,19 @@ export function ChatInterface({
   status
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const { setActiveDashboard } = useChatContext();
   const isLoading = status === "submitted" || status === "streaming";
+
+  const handleShowDashboard = (output: unknown) => {
+    // New structure: { config, snapshotId, summary }
+    if (typeof output === "object" && output !== null && "config" in output) {
+      setActiveDashboard((output as { config: DashboardTool }).config);
+    } else {
+      setActiveDashboard(output as DashboardTool);
+    }
+    // Keep chat open so user can read the explanation while viewing data
+    // setIsChatOpen(false); 
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,16 +91,27 @@ export function ChatInterface({
                     );
                   }
                   
-                  // Generative UI Logic (Notification only)
+                  // Generative UI Logic (Notification and Action)
                   if (part.type === 'tool-render_dashboard') {
+                    const isAvailable = part.state === 'output-available';
                     return (
-                      <div key={index} className="flex justify-center w-full my-2">
+                      <div key={index} className="flex flex-col items-center gap-3 my-4">
                         <div className="px-3 py-1.5 bg-[var(--color-bg)] rounded-full border border-[color:var(--color-stroke)] flex items-center gap-2">
                           <Icon name="layout" className="w-3 h-3 text-[color:var(--color-secondary)]" />
                           <span className="text-[10px] text-[color:var(--color-secondary)] font-medium uppercase tracking-wider">
-                            {part.state === 'output-available' ? "Dashboard updated" : "Designing..."}
+                            {isAvailable ? "Dashboard ready" : "Designing..."}
                           </span>
                         </div>
+                        
+                        {isAvailable && (
+                          <button
+                            onClick={() => handleShowDashboard(part.output)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[var(--color-unit)] border border-[color:var(--color-stroke)] rounded-lg text-sm font-medium text-[color:var(--color-primary)] hover:bg-[var(--color-bg)] transition-all shadow-sm group"
+                          >
+                            <Icon name="grid" className="w-4 h-4 text-[color:var(--color-highlight)] group-hover:scale-110 transition-transform" />
+                            View Dashboard
+                          </button>
+                        )}
                       </div>
                     );
                   }

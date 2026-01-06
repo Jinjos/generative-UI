@@ -27,6 +27,33 @@ export interface SummaryResponse {
   acceptance_rate: number;
 }
 
+export interface TrendResponse {
+  date: string;
+  active_users: number;
+  interactions: number;
+  suggestions: number;
+  acceptances: number;
+  loc_added: number;
+}
+
+export interface BreakdownResponse {
+  name: string;
+  interactions: number;
+  acceptances: number;
+  suggestions: number;
+  acceptance_rate: number;
+}
+
+export interface UserListResponse {
+  user_login: string;
+  interactions: number;
+  suggestions: number;
+  acceptances: number;
+  loc_added: number;
+  ide: string;
+  acceptance_rate: number;
+}
+
 export class MetricsService {
   /**
    * Compares multiple entities (users/teams) for a specific metric over time.
@@ -218,7 +245,7 @@ export class MetricsService {
   /**
    * Aggregates daily data for Charts
    */
-  static async getDailyTrends(filters: MetricsFilter = {}) {
+  static async getDailyTrends(filters: MetricsFilter = {}): Promise<TrendResponse[]> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
 
@@ -252,7 +279,7 @@ export class MetricsService {
   /**
    * Pivots data by a dimension (e.g., 'model' or 'ide')
    */
-  static async getBreakdown(dimension: "model" | "ide", filters: MetricsFilter = {}) {
+  static async getBreakdown(dimension: "model" | "ide", filters: MetricsFilter = {}): Promise<BreakdownResponse[]> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
     
@@ -303,7 +330,7 @@ export class MetricsService {
   /**
    * Returns a list of users with their individual performance metrics
    */
-  static async getUsersList(filters: MetricsFilter = {}) {
+  static async getUsersList(filters: MetricsFilter = {}): Promise<UserListResponse[]> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
 
