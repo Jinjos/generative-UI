@@ -188,6 +188,7 @@ export class MetricsService {
   static async getSummary(filters: MetricsFilter = {}): Promise<SummaryResponse> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
+    console.log("📊 [MetricsService] getSummary Query:", JSON.stringify(query));
 
     const result = await UserMetric.aggregate([
       { $match: query },
@@ -228,6 +229,7 @@ export class MetricsService {
       },
     ]);
 
+    console.log("📊 [MetricsService] getSummary Result:", JSON.stringify(result[0] || "No Data"));
     return result[0] || {
       total_interactions: 0,
       total_suggestions: 0,
@@ -248,6 +250,7 @@ export class MetricsService {
   static async getDailyTrends(filters: MetricsFilter = {}): Promise<TrendResponse[]> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
+    console.log("📊 [MetricsService] getDailyTrends Query:", JSON.stringify(query));
 
     return await UserMetric.aggregate([
       { $match: query },
@@ -333,12 +336,14 @@ export class MetricsService {
   static async getUsersList(filters: MetricsFilter = {}): Promise<UserListResponse[]> {
     await dbConnect();
     const query = this.buildMatchQuery(filters);
+    console.log("📊 [MetricsService] getUsersList Query:", JSON.stringify(query));
 
     return await UserMetric.aggregate([
       { $match: query },
       {
         $group: {
           _id: "$user_login",
+          name: { $first: "$user_name" }, // Capture the real name
           interactions: { $sum: "$user_initiated_interaction_count" },
           suggestions: { $sum: "$code_generation_activity_count" },
           acceptances: { $sum: "$code_acceptance_activity_count" },
@@ -351,6 +356,7 @@ export class MetricsService {
         $project: {
           _id: 0,
           user_login: "$_id",
+          name: { $ifNull: ["$name", "$_id"] }, // Fallback to login if name missing
           interactions: 1,
           suggestions: 1,
           acceptances: 1,

@@ -68,15 +68,33 @@ const formatCell = (val: unknown, format?: string, columnKey?: string) => {
 
 export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
   const [page, setPage] = React.useState(1);
+  const [sortKey, setSortKey] = React.useState<string | null>(null);
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc');
+  
   const pageSize = 25;
   const skip = (page - 1) * pageSize;
 
-  // Append pagination params if not already present
-  const paginatedUrl = apiEndpoint.includes('?') 
-    ? `${apiEndpoint}&skip=${skip}&limit=${pageSize}` 
-    : `${apiEndpoint}?skip=${skip}&limit=${pageSize}`;
+  // Append pagination and sort params
+  const separator = apiEndpoint.includes('?') ? '&' : '?';
+  let paginatedUrl = `${apiEndpoint}${separator}skip=${skip}&limit=${pageSize}`;
+  
+  if (sortKey) {
+    paginatedUrl += `&sortKey=${sortKey}&sortOrder=${sortOrder}`;
+  }
 
   const { data, loading, error } = useDataFetcher<TableDataResponse | Record<string, unknown>[]>(paginatedUrl);
+
+  const handleHeaderClick = (key: string) => {
+    if (sortKey === key) {
+      // Toggle order
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New sort column
+      setSortKey(key);
+      setSortOrder('desc'); // Default to desc for metrics (usually bigger is better)
+    }
+    setPage(1); // Reset to page 1 on sort change
+  };
 
   // Extract Data & Metadata
   let rows: Record<string, unknown>[] = [];
@@ -84,9 +102,11 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
 
   if (data) {
     if (Array.isArray(data)) {
+      console.log(`[SmartTable] Received Flat Array: ${data.length} items`);
       rows = data; // Legacy/Flat array
       totalCount = data.length;
     } else {
+      console.log(`[SmartTable] Received Envelope:`, data.pagination);
       // Prioritize 'data' from envelope, then fallbacks
       rows = (data.data || data.items || data.trends || []) as Record<string, unknown>[];
       totalCount = data.pagination?.total || rows.length;
@@ -138,7 +158,23 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
           <thead className="bg-[var(--color-unit-2)] text-[color:var(--color-secondary)]">
             <tr>
               {columns.map((col) => (
-                <th key={col.key} className="px-4 py-3 font-normal whitespace-nowrap">{col.label}</th>
+                <th 
+                  key={col.key} 
+                  className="px-4 py-3 font-normal whitespace-nowrap cursor-pointer hover:text-[color:var(--color-primary)] transition-colors select-none group"
+                  onClick={() => handleHeaderClick(col.key)}
+                >
+                  <div className="flex items-center gap-1">
+                    {col.label}
+                    {sortKey === col.key && (
+                      <span className="text-[10px]">
+                        {sortOrder === 'asc' ? '▲' : '▼'}
+                      </span>
+                    )}
+                    {sortKey !== col.key && (
+                      <span className="text-[10px] opacity-0 group-hover:opacity-30">▼</span>
+                    )}
+                  </div>
+                </th>
               ))}
               <th className="px-4 py-3 font-normal"></th>
             </tr>

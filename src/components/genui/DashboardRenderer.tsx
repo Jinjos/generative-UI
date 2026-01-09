@@ -14,6 +14,7 @@ interface DashboardRendererProps {
 }
 
 export function DashboardRenderer({ config }: DashboardRendererProps) {
+  console.log("🎨 [DashboardRenderer] Config Received:", config);
   // Helper to render tools
   const renderToolComponent = (cfg: ChartConfig) => {
     if (cfg.component === 'KPIGrid') {

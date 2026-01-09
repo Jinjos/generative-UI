@@ -45,12 +45,15 @@ export function SmartChart({
   }
 
   if (error || !data) {
+    console.error("[SmartChart] Error or No Data:", error || "Data is null");
     return (
       <div className="flex h-[300px] w-full items-center justify-center rounded-[8px] bg-[var(--color-unit)] shadow-card text-[var(--color-salmon)]">
         Error loading data
       </div>
     );
   }
+
+  console.log("[SmartChart] Received Data Type:", Array.isArray(data) ? "Array" : "Object", data);
 
   // Robustly extract the array data
   const chartData = Array.isArray(data) 

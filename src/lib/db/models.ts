@@ -50,6 +50,7 @@ const LanguageModelUsageSchema = new Schema({
 const UserMetricSchema = new Schema({
   user_id: { type: Number, required: true },
   user_login: { type: String, required: true },
+  user_name: { type: String }, // Human-readable name (e.g. "Alice Chen")
   day: { type: Date, required: true },
   enterprise_id: String,
   user_initiated_interaction_count: { type: Number, default: 0 },

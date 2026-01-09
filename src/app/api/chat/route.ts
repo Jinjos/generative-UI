@@ -127,6 +127,7 @@ const getMetricsSummaryTool = tool({
     };
 
     const { summary } = await fetchDataForConfig(dummyConfig);
+    console.log("🔍 [Server] get_metrics_summary Result:", JSON.stringify(summary, null, 2));
     return summary;
   },
 });
@@ -142,9 +143,13 @@ const renderDashboardTool = tool({
   }),
   execute: async ({ config }) => {
     console.log("🛠️ [Server] render_dashboard triggered.");
+    console.log("🛠️ [Server] Config Received:", JSON.stringify(config, null, 2));
     
     // Fetch and Snapshot
     const { heavyData, summary } = await fetchDataForConfig(config);
+    console.log(`🛠️ [Server] Hydrated Heavy Data Type: ${Array.isArray(heavyData) ? 'Array' : typeof heavyData}`);
+    console.log(`🛠️ [Server] Heavy Data Length: ${Array.isArray(heavyData) ? heavyData.length : 'N/A'}`);
+
     const snapshotId = SnapshotService.saveSnapshot(
       (heavyData || []) as Record<string, unknown> | unknown[], 
       summary, 

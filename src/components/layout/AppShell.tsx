@@ -59,14 +59,14 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] overflow-hidden">
-      <div className="mx-auto flex w-full max-w-[1440px] h-screen overflow-hidden">
+      <div className="flex w-full h-screen overflow-hidden">
         <Sidebar navItems={navItems} />
         
         {/* Main content and Copilot sidebar are now siblings in a flex container */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col h-full overflow-y-auto transition-all duration-300 ease-in-out">
-            <main className="flex-1 px-6 py-6 lg:px-8 flex flex-col">
+            <main className="flex-1 px-6 py-6 lg:px-8 flex flex-col w-full max-w-7xl mx-auto">
               <TopBar 
                 isDark={isDark} 
                 onToggle={() => setIsDark(!isDark)} 
@@ -81,7 +81,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
           {/* Copilot Sidebar Container */}
           <div
             className={cn(
-              "transition-all duration-300 ease-in-out",
+              "transition-all duration-300 ease-in-out border-l border-[color:var(--color-stroke)]",
               isChatOpen ? "w-[350px] opacity-100" : "w-0 opacity-0"
             )}
           >

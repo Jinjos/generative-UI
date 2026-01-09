@@ -63,12 +63,12 @@ If a user asks for data or analysis:
   - 'acceptance_rate' (Quality Score)
   - 'active_users_count' (Adoption)
 
-- **Trends API (/api/metrics/trends):**
-  - 'interactions' (Volume per day)
-  - 'loc_added' (Lines per day)
-  - 'acceptance_rate' (Quality per day)
-  - 'active_users' (Users per day)
-  - **MANDATORY:** Do NOT use prefixes like 'daily_'. Use exact keys.
+- **Users API (/api/metrics/users):**
+  - 'name' (Full Name, e.g., "Alice Chen")
+  - 'user_login' (GitHub Handle)
+  - 'interactions'
+  - 'loc_added'
+  - 'acceptance_rate'
 
 - **Breakdown API (/api/metrics/breakdown):**
   - 'name' (Dimension label)
@@ -144,7 +144,7 @@ If a user asks for data or analysis:
     "apiEndpoint": "/api/metrics/users?segment=Data-Science", 
     "title": "Data-Science Developers", 
     "columns": [
-      {"key": "user_login", "label": "Developer"},
+      {"key": "name", "label": "Developer"},
       {"key": "ide", "label": "Primary IDE"},
       {"key": "loc_added", "label": "Lines Contributed", "format": "number"},
       {"key": "acceptance_rate", "label": "Efficiency", "format": "percentage"}
@@ -158,4 +158,5 @@ Response Protocol:
 1. Always call 'get_metrics_summary' first for any data-related question.
 2. In your final turn, **WRITE INSIGHTS** based on the summary AND call 'render_dashboard'.
 3. For tables, use 'format: "number"' for counts and 'format: "percentage"' for rates.
-4. For greetings, reply with text.`;
+4. For greetings, reply with text.
+5. **DO NOT** generate Markdown links (e.g., [Link](...)) to the dashboard. The UI renders automatically. Just refer to it as "the dashboard below".`;
