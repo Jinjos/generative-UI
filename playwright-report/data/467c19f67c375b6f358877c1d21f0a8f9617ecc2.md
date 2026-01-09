@@ -1,0 +1,103 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e11]: CUBIC
+        - button [ref=e12]:
+          - img [ref=e13]
+      - navigation [ref=e15]:
+        - link "Dashboard" [ref=e16] [cursor=pointer]:
+          - /url: /
+          - img [ref=e17]
+          - generic [ref=e22]: Dashboard
+        - link "Analytics" [ref=e23] [cursor=pointer]:
+          - /url: /analytics
+          - img [ref=e24]
+          - generic [ref=e26]: Analytics
+        - link "Products" [ref=e27] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e28]
+          - generic [ref=e31]: Products
+        - link "Customer" [ref=e32] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e33]
+          - generic [ref=e38]: Customer
+        - link "Category" [ref=e39] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e40]
+          - generic [ref=e42]: Category
+        - link "Orders" [ref=e43] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e44]
+          - generic [ref=e47]: Orders
+        - link "Coupons" [ref=e48] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e49]
+          - generic [ref=e52]: Coupons
+        - link "Chats 8" [ref=e53] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e54]
+          - generic [ref=e56]: Chats
+          - generic [ref=e57]: "8"
+        - link "Settings" [ref=e58] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e59]
+          - generic [ref=e62]: Settings
+        - link "Logout" [ref=e63] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e64]
+          - generic [ref=e67]: Logout
+    - generic [ref=e68]:
+      - main [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e73]:
+            - img
+            - textbox "Search" [ref=e74]
+          - generic [ref=e75]:
+            - button "Switch to dark mode" [ref=e76]:
+              - img [ref=e77]
+            - button "Toggle Copilot" [ref=e79]:
+              - img [ref=e80]
+            - button [ref=e82]:
+              - img [ref=e83]
+            - generic [ref=e89]:
+              - paragraph [ref=e90]: Mark Ferdinand
+              - paragraph [ref=e91]: mkferdinand@gmail.com
+        - generic [ref=e93]:
+          - generic [ref=e95]: 📊
+          - heading "Ready to Analyze" [level=3] [ref=e96]
+          - paragraph [ref=e97]:
+            - text: Open the Copilot chat on the right and ask for data visualization.
+            - generic [ref=e98]: "Try: Show me a full dashboard"
+      - generic [ref=e99]:
+        - generic:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - img [ref=e103]
+              - generic [ref=e105]: Copilot
+            - button [ref=e106]
+          - generic:
+            - generic:
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - generic: Show me a summary of usage metrics
+                - generic:
+                  - generic:
+                    - generic [ref=e110]: Dashboard ready
+                    - button "View Dashboard" [ref=e111]:
+                      - img [ref=e112]
+                      - text: View Dashboard
+                  - generic [ref=e117]:
+                    - generic: "Here's a summary of the usage metrics: - **Total AI Interactions:** 305 - **AI Lines Added:** 2,561 - **Suggestion Acceptance Rate:** 29.42% - **Active Developers:** 20 I've also generated a dashboard with this summary and trends for a more detailed view."
+              - generic [ref=e118]:
+                - generic:
+                  - textbox "Ask Copilot..." [ref=e119]
+                  - button [disabled] [ref=e120]:
+                    - img [ref=e121]
+  - button "Open Next.js Dev Tools" [ref=e128] [cursor=pointer]:
+    - img [ref=e129]
+  - alert [ref=e132]
+```

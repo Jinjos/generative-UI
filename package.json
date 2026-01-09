@@ -2,11 +2,14 @@
   "name": "genui-engine",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
@@ -34,15 +37,25 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.7.0",
     "babel-plugin-react-compiler": "1.0.0",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "happy-dom": "^20.1.0",
+    "jsdom": "^27.0.1",
+    "msw": "^2.12.7",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.16"
   }
 }

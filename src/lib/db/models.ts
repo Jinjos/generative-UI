@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 // --- Modern Schema (Granular User Metrics v2 GA) ---
 

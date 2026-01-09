@@ -10,6 +10,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { DashboardToolSchema, DashboardTool } from "@/lib/genui/schemas";
+import { injectSnapshotIntoConfig } from "@/lib/genui/utils";
 import { SYSTEM_PROMPT } from "@/config/ai/system-prompt";
 import { after } from "next/server";
 import {
@@ -101,24 +102,6 @@ async function fetchDataForConfig(config: DashboardTool) {
   }
 
   return { heavyData, summary };
-}
-
-function injectSnapshotIntoConfig(config: DashboardTool, snapshotId: string): DashboardTool {
-  const snapshotUrl = `/api/snapshots/${snapshotId}`;
-  const newConfig = JSON.parse(JSON.stringify(config)); // Deep clone
-
-  if (newConfig.layout === "dashboard") {
-    if (newConfig.slotMain) newConfig.slotMain.apiEndpoint = snapshotUrl;
-    // We don't overwrite headerStats endpoints because they might need distinct summary calls,
-    // but for this prototype, the snapshot contains everything.
-    // Ideally, the SnapshotService should handle sub-paths, but let's point main chart to it.
-  } else if (newConfig.layout === "single") {
-    newConfig.config.apiEndpoint = snapshotUrl;
-  } else if (newConfig.layout === "split") {
-    newConfig.leftChart.apiEndpoint = snapshotUrl;
-    newConfig.rightChart.apiEndpoint = snapshotUrl;
-  }
-  return newConfig;
 }
 
 /**

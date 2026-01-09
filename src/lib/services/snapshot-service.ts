@@ -72,10 +72,29 @@ export class SnapshotService {
   }
 
   /**
-   * Returns only the heavy data for the Client API.
+   * Returns data for the Client API, optionally paginated.
    */
-  static getSnapshotData(id: string) {
+  static getSnapshotData(id: string, options?: { skip?: number; limit?: number }) {
     const entry = this.getSnapshot(id);
-    return entry ? entry.data : null;
+    if (!entry) return null;
+
+    const { data } = entry;
+
+    // Handle Pagination for Arrays
+    if (Array.isArray(data) && options && (options.skip !== undefined || options.limit !== undefined)) {
+      const skip = options.skip || 0;
+      const limit = options.limit || data.length;
+      
+      return {
+        data: data.slice(skip, skip + limit),
+        pagination: {
+          total: data.length,
+          skip,
+          limit
+        }
+      };
+    }
+
+    return data;
   }
 }
