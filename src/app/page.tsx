@@ -1,5 +1,10 @@
-import DashboardShell from "@/components/layout/DashboardShell";
+"use client";
 
-export default function Home() {
-  return <DashboardShell />;
+import { DashboardRenderer } from "@/components/genui/DashboardRenderer";
+import { useChatContext } from "@/hooks/use-chat-context";
+
+export default function DashboardPage() {
+  const { activeDashboard } = useChatContext();
+
+  return <DashboardRenderer config={activeDashboard} />;
 }

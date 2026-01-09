@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { AI } from "@/lib/genui/ai-state";
 import "./globals.css";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "GenUI Engine",
@@ -15,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <AI>{children}</AI>
+        <AppShell>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

@@ -1,3 +1,17 @@
+/**
+ * ARCHITECTURE NOTE: ACTIVE HYDRATION
+ * 
+ * In the GenUI architecture, the Agent provides the "Instructions" (the API URL), 
+ * but the Client performs the "Action" (the Fetch).
+ * 
+ * This hook is the engine for that action. When a "Smart Component" (Chart, Table) 
+ * mounts with an apiEndpoint provided by the Agent, this hook hydrates the component 
+ * with real-time data.
+ * 
+ * This ensures that the UI is always live and interactive, and that the LLM is 
+ * never a bottleneck for data transfer.
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,16 +31,20 @@ export function useDataFetcher<T>(url: string) {
     setError(null);
 
     const fetchData = async () => {
+      console.log(`[Hydration] Requesting: ${url}`);
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch");
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
         const json = await res.json();
+        
+        console.log(`[Hydration] Success from ${url}:`, json);
         
         if (isMounted) {
           setData(json);
           setLoading(false);
         }
       } catch (err) {
+        console.error(`[Hydration] Error fetching ${url}:`, err);
         if (isMounted) {
           setError(err instanceof Error ? err : new Error("Unknown error"));
           setLoading(false);
