@@ -1,3 +1,17 @@
+/**
+ * ARCHITECTURE NOTE: ACTIVE HYDRATION
+ * 
+ * In the GenUI architecture, the Agent provides the "Instructions" (the API URL), 
+ * but the Client performs the "Action" (the Fetch).
+ * 
+ * This hook is the engine for that action. When a "Smart Component" (Chart, Table) 
+ * mounts with an apiEndpoint provided by the Agent, this hook hydrates the component 
+ * with real-time data.
+ * 
+ * This ensures that the UI is always live and interactive, and that the LLM is 
+ * never a bottleneck for data transfer.
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";

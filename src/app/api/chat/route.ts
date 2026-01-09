@@ -1,3 +1,21 @@
+/**
+ * ARCHITECTURE NOTE: THE ORCHESTRATION LAYER
+ * 
+ * This route serves as the "Brain" of the GenUI Engine. 
+ * It implements a specialized two-step tool-calling pattern designed for token efficiency:
+ * 
+ * 1. STEP 1 (The Eyes): The Agent calls 'get_metrics_summary' to fetch a tiny statistical 
+ *    overview of the data. This allows the LLM to "see" the facts without loading 
+ *    thousands of raw database rows into its context window.
+ * 
+ * 2. STEP 2 (The Hands): The Agent calls 'render_dashboard' to dictate the UI Layout.
+ *    Instead of sending data back to the client via the LLM, we generate a "Snapshot" 
+ *    on the server and send only the Snapshot ID to the UI.
+ * 
+ * This decoupling ensures that we can visualize massive datasets (e.g., 1-year history)
+ * while keeping the LLM response fast, cheap, and precise.
+ */
+
 import { openai } from "@ai-sdk/openai";
 import {
   stepCountIs,

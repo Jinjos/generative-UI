@@ -1,3 +1,17 @@
+/**
+ * ARCHITECTURE NOTE: THE INTERFACE CONTRACT
+ * 
+ * This file defines the "Eyes" of the Agent. The LLM reads these Zod schemas 
+ * to understand what UI components are available and what parameters they accept.
+ * 
+ * IMPORTANT:
+ * - Use .describe() on every field. This is the only way the LLM knows what 
+ *   an 'apiEndpoint' or 'dataKey' actually does.
+ * - Use z.discriminatedUnion for layouts. This ensures the Agent cannot 
+ *   mix-and-match properties from different layouts (e.g. adding 'leftChart' 
+ *   to a 'single' layout).
+ */
+
 import { z } from "zod";
 
 // Base Chart Configuration

@@ -1,3 +1,21 @@
+/**
+ * ARCHITECTURE NOTE: THE SNAPSHOT PATTERN
+ * 
+ * The SnapshotService is the bridge between the Agent's decision and the User's view.
+ * 
+ * WHY USE SNAPSHOTS?
+ * 1. Token Efficiency: We never send raw data arrays to the LLM. We only send 
+ *    summaries. The heavy data is "parked" here in a snapshot.
+ * 2. Data Integrity: When an Agent generates an insight based on data it saw 
+ *    at T=0, we want the UI to render that exact same data, even if the database 
+ *    changes at T+1.
+ * 3. Performance: The client fetches the heavy payload directly via a standard 
+ *    REST endpoint (/api/snapshots/[id]), bypassing the LLM stream entirely.
+ * 
+ * In this implementation, we use an in-memory Map with an LRU eviction policy 
+ * and TTL. For production, this should be backed by Redis.
+ */
+
 import { DashboardTool } from "../genui/schemas";
 
 // In-memory cache for the prototype

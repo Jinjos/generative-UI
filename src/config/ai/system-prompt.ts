@@ -1,3 +1,16 @@
+/**
+ * ARCHITECTURE NOTE: THE AGENT'S BRAIN
+ * 
+ * This system prompt is the "Training Data" for the GenUI Engine.
+ * If you want to adapt this engine to a new domain (e.g., Sales or Health),
+ * you must update three core sections below:
+ * 
+ * 1. THE TOOLKIT: Explains the high-level workflow.
+ * 2. THE DATA DICTIONARY: Maps your backend database keys to natural language.
+ * 3. THE RECIPES: Provides "Few-Shot" examples of how to map a user question
+ *    to a specific UI configuration.
+ */
+
 export const SYSTEM_PROMPT = `You are the **GenUI Orchestrator**. You visualize GitHub Copilot telemetry by generating UI configurations.
 
 ## Your Toolkit
