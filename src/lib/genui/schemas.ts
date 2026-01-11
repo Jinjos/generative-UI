@@ -17,7 +17,7 @@ import { z } from "zod";
 // Base Chart Configuration
 export const ChartConfigSchema = z.object({
   component: z.enum(["SmartChart", "KPIGrid", "SmartTable", "CompareStatCard"]),
-  apiEndpoint: z.string().describe("The API endpoint to fetch data from (e.g., /api/github/usage)"),
+  apiEndpoint: z.string().describe("The API endpoint to fetch data from (e.g., /api/metrics/summary)"),
   title: z.string().describe("The title of the chart or grid"),
   filter: z.string().optional().describe("Optional time period label (e.g., '15 Days', 'Month')"),
   description: z.string().optional().describe("A brief description for the user"),

@@ -1,10 +1,14 @@
 "use client";
 
-import { AnalyticsRenderer } from "@/components/genui/AnalyticsRenderer";
-import { useChatContext } from "@/hooks/use-chat-context";
+import React from "react";
 
 export default function AnalyticsPage() {
-  const { activeDashboard } = useChatContext();
-
-  return <AnalyticsRenderer config={activeDashboard} />;
+  return (
+    <div className="h-full flex items-center justify-center text-[color:var(--color-secondary)]">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-2">Analytics</h1>
+        <p className="text-sm opacity-70">This module is currently deprecated.</p>
+      </div>
+    </div>
+  );
 }

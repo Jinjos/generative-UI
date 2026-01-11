@@ -74,4 +74,14 @@ const UserMetricSchema = new Schema({
 // Compound index to ensure uniqueness per user per day
 UserMetricSchema.index({ user_id: 1, day: 1 }, { unique: true });
 
+// --- Room Schema (For Multi-Player Meeting Rooms) ---
+
+const RoomSchema = new Schema({
+  roomId: { type: String, required: true, unique: true },
+  messages: { type: Array, default: [] }, // Stores chat history
+  dashboardConfig: { type: Object, default: null }, // Stores current active UI layout
+  lastUpdated: { type: Date, default: Date.now }
+});
+
 export const UserMetric = models.UserMetric || model("UserMetric", UserMetricSchema);
+export const Room = models.Room || model("Room", RoomSchema);

@@ -17,6 +17,7 @@ interface NavItem {
 
 const baseNavItems: NavItem[] = [
   { label: "Dashboard", icon: "grid", href: "/" },
+  { label: "Rooms", icon: "chat", href: "/rooms" },
   { label: "Analytics", icon: "activity", href: "/analytics" },
   { label: "Products", icon: "box" },
   { label: "Customer", icon: "users" },
@@ -38,7 +39,8 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
     isChatOpen, 
     setIsChatOpen, 
     isDark, 
-    setIsDark 
+    setIsDark,
+    roomId
   } = useChatContext();
 
   const [mounted, setMounted] = useState(false);
@@ -50,7 +52,9 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
   const navItems = baseNavItems.map((item: NavItem) => ({
     ...item,
-    active: item.href === pathname || (item.label === "Dashboard" && pathname === "/")
+    active: 
+      (item.href === "/" && pathname === "/") || 
+      !!(item.href !== "/" && item.href && pathname.startsWith(item.href))
   }));
 
   if (!mounted) {
@@ -80,6 +84,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
           {/* Copilot Sidebar Container */}
           <div
+            key={roomId || 'global'} // Force remount of Chat Sidebar when Room changes
             className={cn(
               "transition-all duration-300 ease-in-out border-l border-[color:var(--color-stroke)]",
               isChatOpen ? "w-[350px] opacity-100" : "w-0 opacity-0"
