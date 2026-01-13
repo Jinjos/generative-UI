@@ -96,21 +96,73 @@ async function fetchDataForConfig(config: DashboardTool) {
   } else if (path.includes("/trends")) {
     const trendData = await MetricsService.getDailyTrends(filters);
     heavyData = trendData;
-    // Auto-generate a simple summary for trends
+    // Enhanced Summary for Trends
     const total = trendData.reduce((acc, curr) => acc + (curr.interactions || 0), 0);
-    summary = { total_interactions_in_period: total, days_with_data: trendData.length };
+    const days = trendData.length;
+
+    let trend_direction = "Stable";
+    let peak_day = "N/A";
+    let peak_value = 0;
+
+    if (days >= 2) {
+      // Calculate Direction (First 3 days vs Last 3 days)
+      const windowSize = Math.min(3, Math.floor(days / 2));
+      const startAvg = trendData.slice(0, windowSize).reduce((a, b) => a + b.interactions, 0) / windowSize;
+      const endAvg = trendData.slice(-windowSize).reduce((a, b) => a + b.interactions, 0) / windowSize;
+
+      if (endAvg > startAvg * 1.1) trend_direction = "Increasing 📈";
+      else if (endAvg < startAvg * 0.9) trend_direction = "Decreasing 📉";
+
+      // Find Peak
+      const peak = trendData.reduce((max, curr) => curr.interactions > max.interactions ? curr : max, trendData[0]);
+      peak_day = peak.date;
+      peak_value = peak.interactions;
+    }
+
+    summary = {
+      total_interactions_in_period: total,
+      days_with_data: days,
+      average_daily_interactions: days > 0 ? Math.round(total / days) : 0,
+      trend_direction,
+      peak_day,
+      peak_value
+    };
   } else if (path.includes("/users")) {
     const users = await MetricsService.getUsersList(filters);
     heavyData = users;
+
+    // Enhanced Summary for Users
+    const top5 = users.slice(0, 5).map(u => ({
+      name: u.name || u.user_login,
+      interactions: u.interactions,
+      acceptance_rate: `${(u.acceptance_rate * 100).toFixed(1)}%`
+    }));
+
     summary = { 
-      top_user: users[0]?.user_login || "None", 
-      top_user_interactions: users[0]?.interactions || 0 
+      total_active_developers: users.length,
+      top_leader: users[0]?.user_login || "None",
+      top_5_users: top5,
+      distribution_insight: users.length > 0
+        ? `Top user contributes ${Math.round((users[0].interactions / (users.reduce((a,b) => a + b.interactions, 0) || 1)) * 100)}% of total volume`
+        : "N/A"
     };
   } else if (path.includes("/breakdown")) {
     const by = params.get("by") as "model" | "ide" || "model";
     const breakdown = await MetricsService.getBreakdown(by, filters);
     heavyData = breakdown;
-    summary = { top_category: breakdown[0]?.name, top_category_value: breakdown[0]?.interactions };
+
+    const totalVal = breakdown.reduce((acc, curr) => acc + curr.interactions, 0);
+    const top3 = breakdown.slice(0, 3).map(b => ({
+      name: b.name,
+      value: b.interactions,
+      share: totalVal > 0 ? `${Math.round((b.interactions / totalVal) * 100)}%` : "0%"
+    }));
+
+    summary = {
+      top_category: breakdown[0]?.name,
+      top_category_value: breakdown[0]?.interactions,
+      top_3_distribution: top3
+    };
   }
 
   // If dashboard has headerStats, fetch that summary explicitly if not already done
