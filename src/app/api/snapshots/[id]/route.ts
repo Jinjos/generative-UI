@@ -11,15 +11,16 @@ export async function GET(
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : undefined;
   const sortKey = searchParams.get("sortKey") || undefined;
   const sortOrder = (searchParams.get("sortOrder") as 'asc' | 'desc') || undefined;
+  const key = searchParams.get("key") || undefined;
 
-  console.log(`🔌 [API] Fetching snapshot data for ID: ${id} (skip=${skip}, limit=${limit}, sort=${sortKey}:${sortOrder})`);
+  console.log(`🔌 [API] Fetching snapshot data for ID: ${id} (skip=${skip}, limit=${limit}, sort=${sortKey}:${sortOrder}, key=${key})`);
 
   if (!id) {
     console.error(`❌ [API] Missing Snapshot ID in params`);
     return NextResponse.json({ error: "Missing Snapshot ID" }, { status: 400 });
   }
 
-  const data = SnapshotService.getSnapshotData(id, { skip, limit, sortKey, sortOrder });
+  const data = SnapshotService.getSnapshotData(id, { skip, limit, sortKey, sortOrder, key });
 
   if (!data) {
     console.warn(`⚠️ [API] Snapshot ${id} not found or expired during hydration`);

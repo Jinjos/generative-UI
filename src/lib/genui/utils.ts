@@ -15,7 +15,13 @@ export function injectSnapshotIntoConfig(config: DashboardTool, snapshotId: stri
 
   if (newConfig.layout === "dashboard") {
     if (newConfig.slotMain) {
-      newConfig.slotMain.apiEndpoint = snapshotUrl;
+      newConfig.slotMain.apiEndpoint = `${snapshotUrl}?key=slotMain`;
+    }
+    if (newConfig.slotRightTop) {
+      newConfig.slotRightTop.apiEndpoint = `${snapshotUrl}?key=slotRightTop`;
+    }
+    if (newConfig.slotRightBottom) {
+      newConfig.slotRightBottom.apiEndpoint = `${snapshotUrl}?key=slotRightBottom`;
     }
     // Note: We deliberately do NOT overwrite headerStats here in this version.
     // Ideally, headerStats might need their own snapshots or a composite snapshot.

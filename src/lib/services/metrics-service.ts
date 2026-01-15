@@ -350,6 +350,9 @@ export class MetricsService {
           loc_added: { $sum: "$loc_added_sum" },
           // Capture the last known IDE for this user
           ide: { $last: { $arrayElemAt: ["$totals_by_ide.ide", 0] } },
+          // Accumulate all nested arrays for deep analysis (Code Interpreter)
+          totals_by_language_model: { $push: "$totals_by_language_model" },
+          totals_by_ide: { $push: "$totals_by_ide" }
         },
       },
       {
@@ -362,6 +365,21 @@ export class MetricsService {
           acceptances: 1,
           loc_added: 1,
           ide: 1,
+          // Flatten the accumulated arrays (since $push creates array of arrays)
+          totals_by_language_model: {
+            $reduce: {
+              input: "$totals_by_language_model",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
+          totals_by_ide: {
+            $reduce: {
+              input: "$totals_by_ide",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
           acceptance_rate: {
             $cond: [
               { $gt: ["$suggestions", 0] },
@@ -378,7 +396,7 @@ export class MetricsService {
   private static buildMatchQuery(filters: MetricsFilter) {
     const query: {
       day?: { $gte?: Date; $lte?: Date };
-      "totals_by_feature.feature"?: string;
+      "totals_by_feature.feature"?: string | { $regex: RegExp };
       user_login?: string;
     } = {};
 
@@ -389,8 +407,10 @@ export class MetricsService {
     }
 
     if (filters.segment) {
-      // In seed data, we mapped section to feature: `section_${segment}`
-      query["totals_by_feature.feature"] = `section_${filters.segment}`;
+      // Fuzzy match for segments (e.g., 'Backend' -> matches 'section_Backend-Core', 'section_Backend-Platform')
+      // We escape special characters to be safe, though segment names are usually simple.
+      const safeSegment = filters.segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query["totals_by_feature.feature"] = { $regex: new RegExp(safeSegment, 'i') };
     }
 
     if (filters.userLogin) {

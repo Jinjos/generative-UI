@@ -22,6 +22,7 @@ import { SplitLayout } from "@/components/layout/SplitLayout";
 import { SmartStatCard } from "@/components/genui/SmartStatCard";
 import { CompareStatCard } from "@/components/genui/CompareStatCard";
 import type { DashboardTool, ChartConfig } from "@/lib/genui/schemas";
+import { cn } from "@/lib/utils";
 
 interface DashboardRendererProps {
   config: DashboardTool | null;
@@ -87,8 +88,24 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
           </div>
         </section>
 
-        {/* Center Canvas */}
-          {renderToolComponent(config.slotMain)}
+        {/* Main Content Grid (Center + Sidebar) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+          {/* Main Slot (2/3 width on large screens) */}
+          <div className={cn(
+            "lg:col-span-2 min-w-0", 
+            (!config.slotRightTop && !config.slotRightBottom) && "lg:col-span-3"
+          )}>
+            {renderToolComponent(config.slotMain)}
+          </div>
+
+          {/* Sidebar Slots (1/3 width on large screens) */}
+          {(config.slotRightTop || config.slotRightBottom) && (
+            <div className="flex flex-col gap-6 lg:col-span-1 min-w-0">
+              {config.slotRightTop && renderToolComponent(config.slotRightTop)}
+              {config.slotRightBottom && renderToolComponent(config.slotRightBottom)}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

@@ -46,35 +46,87 @@ import {
   UserListResponse 
 } from "@/lib/services/metrics-service";
 import { SnapshotService } from "@/lib/services/snapshot-service";
+import { AnalysisService } from "@/lib/services/analysis-service";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-type HeavyDataType = SummaryResponse | TrendResponse[] | BreakdownResponse[] | UserListResponse[];
+/**
+ * Placeholder base URL used strictly for parsing relative paths with the URL constructor.
+ * This ensures we can extract searchParams and pathnames from AI-generated strings safely.
+ */
+const PARSING_BASE_URL = "http://localhost";
+
+type MetricData = SummaryResponse | SummaryResponse[] | TrendResponse[] | BreakdownResponse[] | UserListResponse[];
+type HeavyDataType = MetricData | Record<string, MetricData>;
 
 /**
- * Helper: Parse the AI's generated "apiEndpoint" string to call the correct Service method.
- * The AI generates a URL-like string (e.g., "/api/metrics/trends?startDate=..."),
- * which we parse to extract parameters for the direct Service call.
+ * Calculates statistical descriptors for time-series data to give the Agent "eyes"
+ * on the shape of the data without loading all data points.
  */
-async function fetchDataForConfig(config: DashboardTool) {
-  // Extract the main component to decide which data to fetch
-  // In a 'dashboard' layout, we usually fetch the main slot's data
-  // For 'split', we might fetch both, but for this prototype, we target the first valid endpoint found.
+function calculateTrendStats(data: TrendResponse[]) {
+  if (data.length === 0) return { trend: "no_data" };
+
+  const values = data.map(d => d.interactions);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
   
-  let targetEndpoint = "";
-  if (config.layout === "dashboard") {
-    targetEndpoint = config.slotMain.apiEndpoint;
-  } else if (config.layout === "single") {
-    targetEndpoint = config.config.apiEndpoint;
-  } else if (config.layout === "split") {
-    targetEndpoint = config.leftChart.apiEndpoint;
-  }
+  // Find peak date
+  const peakIndex = values.indexOf(max);
+  const peakDate = data[peakIndex]?.date;
 
-  if (!targetEndpoint) return { data: [], summary: {} };
+  // Simple trend direction (start vs end)
+  const start = values[0];
+  const end = values[values.length - 1];
+  let direction = "flat";
+  if (end > start * 1.1) direction = "up";
+  else if (end < start * 0.9) direction = "down";
 
-  // Parse Query Params
-  const url = new URL(targetEndpoint, "http://dummy.com");
+  return {
+    trend_direction: direction,
+    average_daily_interactions: Math.round(avg),
+    peak_date: peakDate,
+    peak_value: max,
+    min_value: min,
+    data_points: data.length,
+    start_date: data[0].date,
+    end_date: data[data.length - 1].date
+  };
+}
+
+/**
+ * Calculates distribution stats for categorical data (Users/Breakdowns).
+ * Helps the Agent answer "Is the work balanced?" or "Who are the outliers?"
+ */
+function calculateDistributionStats(data: { interactions: number }[]) {
+  if (data.length === 0) return { distribution: "no_data" };
+
+  const values = data.map(d => d.interactions).sort((a, b) => a - b);
+  const total = values.reduce((a, b) => a + b, 0);
+  const avg = total / values.length;
+  const min = values[0];
+  const max = values[values.length - 1];
+  
+  // Median
+  const mid = Math.floor(values.length / 2);
+  const median = values.length % 2 !== 0 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+
+  return {
+    total_population: values.length,
+    average_interactions: Math.round(avg),
+    median_interactions: Math.round(median),
+    min_interactions: min,
+    max_interactions: max,
+    // Inequality indicator: High mean vs low median = top heavy
+    is_balanced: median > avg * 0.8
+  };
+}
+
+async function fetchDataForEndpoint(endpoint: string) {
+  if (!endpoint) return { data: [], summary: {} };
+
+  const url = new URL(endpoint, PARSING_BASE_URL);
   const params = url.searchParams;
   
   const filters = {
@@ -85,36 +137,99 @@ async function fetchDataForConfig(config: DashboardTool) {
   };
 
   const path = url.pathname;
-  let heavyData: HeavyDataType = [];
+  let data: MetricData = [];
   let summary: Record<string, unknown> = {};
 
-  // Map Endpoint to Service Method
   if (path.includes("/summary")) {
-    const data = await MetricsService.getSummary(filters);
-    heavyData = data;
-    summary = data as unknown as Record<string, unknown>; // SummaryResponse is compatible object
+    const res = await MetricsService.getSummary(filters);
+    data = res; // Return object directly for KPIGrid compatibility
+    summary = res as unknown as Record<string, unknown>;
   } else if (path.includes("/trends")) {
     const trendData = await MetricsService.getDailyTrends(filters);
-    heavyData = trendData;
-    // Auto-generate a simple summary for trends
+    data = trendData;
+    const trendStats = calculateTrendStats(trendData);
     const total = trendData.reduce((acc, curr) => acc + (curr.interactions || 0), 0);
-    summary = { total_interactions_in_period: total, days_with_data: trendData.length };
+    summary = { 
+      total_interactions_in_period: total, 
+      ...trendStats 
+    };
   } else if (path.includes("/users")) {
     const users = await MetricsService.getUsersList(filters);
-    heavyData = users;
+    data = users;
+    const distStats = calculateDistributionStats(users);
     summary = { 
       top_user: users[0]?.user_login || "None", 
-      top_user_interactions: users[0]?.interactions || 0 
+      top_user_interactions: users[0]?.interactions || 0,
+      top_10_list: users.slice(0, 10).map(u => ({ name: u.user_login, value: u.interactions })),
+      ...distStats
     };
   } else if (path.includes("/breakdown")) {
     const by = params.get("by") as "model" | "ide" || "model";
     const breakdown = await MetricsService.getBreakdown(by, filters);
-    heavyData = breakdown;
-    summary = { top_category: breakdown[0]?.name, top_category_value: breakdown[0]?.interactions };
+    data = breakdown;
+    const distStats = calculateDistributionStats(breakdown);
+    summary = { 
+      top_category: breakdown[0]?.name, 
+      top_category_value: breakdown[0]?.interactions,
+      top_10_list: breakdown.slice(0, 10).map(b => ({ name: b.name, value: b.interactions })),
+      ...distStats
+    };
+  }
+
+  return { data, summary };
+}
+
+/**
+ * Helper: Parse the AI's generated "apiEndpoint" string to call the correct Service method.
+ * The AI generates a URL-like string (e.g., "/api/metrics/trends?startDate=..."),
+ * which we parse to extract parameters for the direct Service call.
+ */
+async function fetchDataForConfig(config: DashboardTool) {
+  let heavyData: HeavyDataType = [];
+  let summary: Record<string, unknown> = {};
+
+  if (config.layout === "dashboard") {
+    // Parallel fetch for all slots
+    const [main, rightTop, rightBottom] = await Promise.all([
+      fetchDataForEndpoint(config.slotMain.apiEndpoint),
+      config.slotRightTop ? fetchDataForEndpoint(config.slotRightTop.apiEndpoint) : Promise.resolve({ data: [], summary: {} }),
+      config.slotRightBottom ? fetchDataForEndpoint(config.slotRightBottom.apiEndpoint) : Promise.resolve({ data: [], summary: {} }),
+    ]);
+
+    // Construct Composite Snapshot
+    heavyData = {
+      slotMain: main.data,
+      slotRightTop: rightTop.data,
+      slotRightBottom: rightBottom.data
+    };
+
+    // Merge summaries (Last write wins, but usually they are distinct enough or we just care about Main)
+    summary = { ...main.summary, ...rightTop.summary, ...rightBottom.summary };
+
+  } else {
+    // Single or Split (Legacy/Simple logic)
+    let targetEndpoint = "";
+    if (config.layout === "single") {
+      targetEndpoint = config.config.apiEndpoint;
+    } else if (config.layout === "split") {
+      targetEndpoint = config.leftChart.apiEndpoint; // Just fetch left for now, split support incomplete in this refactor
+    }
+    
+    const result = await fetchDataForEndpoint(targetEndpoint);
+    heavyData = result.data;
+    summary = result.summary;
   }
 
   // If dashboard has headerStats, fetch that summary explicitly if not already done
   if (config.layout === "dashboard" && config.headerStats) {
+    // Just use the main summary for header stats if available, or fetch specific if needed
+    // For now, we assume header stats come from the general summary
+    const url = new URL(config.slotMain.apiEndpoint, PARSING_BASE_URL);
+    const params = url.searchParams;
+    const filters = {
+       startDate: params.get("startDate") ? new Date(params.get("startDate")!) : undefined,
+       endDate: params.get("endDate") ? new Date(params.get("endDate")!) : undefined,
+    };
     const headerSummary = await MetricsService.getSummary(filters);
     summary = { ...summary, ...headerSummary };
   }
@@ -183,19 +298,72 @@ const renderDashboardTool = tool({
   },
 });
 
+/**
+ * Tool 3: Code Interpreter (The Agent's "Brain")
+ * Allows specific analysis by running code against the heavy data.
+ */
+const analyzeDataWithCodeTool = tool({
+  description: "Analyze the raw data using JavaScript code. Use this when the summary is insufficient. You have access to a 'data' variable containing the array.",
+  inputSchema: z.object({
+    endpoint: z.string().describe("The endpoint to fetch data from to analyze (e.g. /api/metrics/trends)"),
+    code: z.string().describe("The JavaScript code to execute. Must return a value. Example: 'return data.filter(d => d.value > 10).length'"),
+  }),
+  execute: async ({ endpoint, code }) => {
+    console.log("🧠 [Server] analyze_data_with_code triggered.");
+    console.log("🧠 [Server] Endpoint:", endpoint);
+
+    // 1. Fetch the Heavy Data (Server-side)
+    // We reuse the existing logic, just grabbing the data array
+    const { data } = await fetchDataForEndpoint(endpoint);
+    
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      return { error: "No data found at this endpoint." };
+    }
+
+    // 2. Run Safe Analysis
+    // We expect 'data' to be an array for most analysis tasks
+    const dataArray = Array.isArray(data) ? data : [data];
+    const result = await AnalysisService.runAnalysis(dataArray, code);
+    
+    console.log("🧠 [Server] Analysis Result:", JSON.stringify(result));
+    return { result };
+  },
+});
+
+/**
+ * Tool 4: Discovery (The Agent's "Compass")
+ * Finds valid teams/segments to filter by.
+ */
+const getSegmentsTool = tool({
+  description: "Get a list of all available teams/segments in the database. Use this if the user asks for a list of teams or if you are unsure which segment name to use.",
+  inputSchema: z.object({}),
+  execute: async () => {
+    console.log("🧭 [Server] get_segments triggered.");
+    const segments = await MetricsService.getSegments();
+    console.log("🧭 [Server] Segments found:", segments.length);
+    return { segments };
+  },
+});
+
 const tools = {
   get_metrics_summary: getMetricsSummaryTool,
   render_dashboard: renderDashboardTool,
+  analyze_data_with_code: analyzeDataWithCodeTool,
+  get_segments: getSegmentsTool,
 } as const;
 
 // Export the message type for the client to use
 export type ChatUIMessage = UIMessage<never, UIDataTypes, InferUITools<typeof tools>>;
 
 const handler = async (req: Request) => {
+  console.log(`[Request Handler] Received new chat request at ${new Date().toISOString()}`);
   const { messages,
     chatId,
     userId,
   }: { messages: ChatUIMessage[]; chatId?: string; userId?: string } = await req.json();
+
+  console.log(`[Request Handler] Chat ID: ${chatId}, User ID: ${userId}`);
+  console.log(`[Request Handler] Message count: ${messages.length}`);
 
   const now = new Date();
   const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
@@ -221,6 +389,7 @@ const handler = async (req: Request) => {
   // Use a type-safe approach to enable multi-step reasoning.
   const streamOptions = {
     model: openai("gpt-4o"),
+
     messages: await convertToModelMessages(messages),
     system: `${SYSTEM_PROMPT}\n\n${dateContext}`,
     tools,
@@ -252,6 +421,56 @@ const handler = async (req: Request) => {
       trace.getActiveSpan()?.end();
     },
     onError: ({ error }: { error: unknown }) => {
+      // Log the full error object for comprehensive debugging
+      console.error("[AI Error] Full error object:", JSON.stringify(error, null, 2));
+
+      // Define minimal types for the AI SDK errors to avoid 'any'
+      interface AIRetryErrorType extends Error {
+        name: 'AI_RetryError';
+        reason: string;
+        lastError?: AIAPICallErrorType;
+      }
+
+      interface AIAPICallErrorType extends Error {
+        name: 'AI_APICallError';
+        url: string;
+        requestBodyValues?: {
+          model?: string;
+        };
+        statusCode?: number;
+        responseBody?: string;
+      }
+
+      // Attempt to extract specific details if it's an AI_RetryError
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        (error as AIRetryErrorType).name === 'AI_RetryError'
+      ) {
+        const aiRetryError = error as AIRetryErrorType;
+        console.error(`[AI_RetryError] Max retries exceeded. Reason: ${aiRetryError.reason}`);
+        if (aiRetryError.lastError) {
+          const lastError = aiRetryError.lastError;
+          console.error(`  [AI_APICallError] Last attempt failed.`);
+          console.error(`    URL: ${lastError.url}`);
+          console.error(`    Request Body (model): ${lastError.requestBodyValues?.model}`);
+          console.error(`    Response Status: ${lastError.statusCode}`);
+          if (lastError.responseBody) {
+            try {
+              const responseBody = JSON.parse(lastError.responseBody);
+              console.error(`    Response Message: ${responseBody.message || lastError.responseBody}`);
+            } catch { // parseError is not used
+              console.error(`    Raw Response Body: ${lastError.responseBody}`);
+            }
+          }
+        }
+      } else if (error instanceof Error) {
+        console.error(`[AI Error] ${error.name}: ${error.message}`);
+      } else {
+        console.error("[AI Error] Unknown error type:", error);
+      }
+
       updateActiveObservation({
         output: error,
         level: "ERROR"

@@ -95,11 +95,19 @@ export class SnapshotService {
   /**
    * Returns data for the Client API, optionally paginated.
    */
-  static getSnapshotData(id: string, options?: { skip?: number; limit?: number; sortKey?: string; sortOrder?: 'asc' | 'desc' }) {
+  static getSnapshotData(id: string, options?: { skip?: number; limit?: number; sortKey?: string; sortOrder?: 'asc' | 'desc'; key?: string }) {
     const entry = this.getSnapshot(id);
     if (!entry) return null;
 
     let { data } = entry;
+
+    // 0. Select Sub-Key (for composite dashboards)
+    if (options?.key && data && typeof data === 'object' && !Array.isArray(data)) {
+      const compositeData = data as Record<string, unknown>;
+      if (compositeData[options.key]) {
+        data = compositeData[options.key] as Record<string, unknown> | unknown[];
+      }
+    }
 
     // Handle Pagination and Sorting for Arrays
     if (Array.isArray(data)) {

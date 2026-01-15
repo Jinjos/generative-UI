@@ -72,6 +72,8 @@ export const DashboardToolSchema = z.discriminatedUnion("layout", [
     layout: z.literal("dashboard"),
     headerStats: z.array(HeaderStatSchema).max(4).optional(),
     slotMain: ChartConfigSchema, // The center component
+    slotRightTop: ChartConfigSchema.optional(),
+    slotRightBottom: ChartConfigSchema.optional(),
   }),
 ]);
 
