@@ -30,6 +30,7 @@
     "mongoose": "^8.20.4",
     "nanoid": "^5.1.6",
     "next": "16.1.1",
+    "quickjs-emscripten": "^0.31.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.6.0",

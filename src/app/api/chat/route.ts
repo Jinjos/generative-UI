@@ -29,7 +29,7 @@ import {
 import { z } from "zod";
 import { DashboardToolSchema, DashboardTool } from "@/lib/genui/schemas";
 import { injectSnapshotIntoConfig } from "@/lib/genui/utils";
-import { SYSTEM_PROMPT } from "@/config/ai/system-prompt";
+import { buildSystemPrompt } from "@/config/ai/system-prompt";
 import { after } from "next/server";
 import {
   observe,
@@ -368,6 +368,7 @@ const handler = async (req: Request) => {
   const now = new Date();
   const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
   console.log("🔍 [Server] Date Context injected into prompt:", dateContext);
+  const systemPrompt = `${buildSystemPrompt()}\n\n${dateContext}`;
 
   // Set session id and user id on active trace
   const inputText = messages[messages.length - 1]?.parts.find(
@@ -391,7 +392,7 @@ const handler = async (req: Request) => {
     model: openai("gpt-4o"),
 
     messages: await convertToModelMessages(messages),
-    system: `${SYSTEM_PROMPT}\n\n${dateContext}`,
+    system: systemPrompt,
     tools,
     stopWhen: stepCountIs(5), // Crucial: Allows AI to see tool output and then write text
     experimental_telemetry: {
