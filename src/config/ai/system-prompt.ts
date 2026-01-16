@@ -1,4 +1,4 @@
-import { FEW_SHOT_EXAMPLES } from "@/config/ai/few-shot-examples";
+import { DEMO_EXAMPLES } from "@/config/ai/demo-examples";
 import { DATA_SCHEMA, DataSchemaField } from "@/config/ai/data-schema";
 
 /**
@@ -47,7 +47,7 @@ ${(Object.entries(fields) as Array<[string, DataSchemaField]>).map(([key, meta])
 Below are examples of how to map User Queries to Tool Steps. 
 **Mimic this JSON structure exactly.**
 
-${FEW_SHOT_EXAMPLES.map((ex, i) => `
+${DEMO_EXAMPLES.map((ex, i) => `
 ### Example ${i + 1}
 **User:** "${ex.user}"
 **Assistant Logic:**

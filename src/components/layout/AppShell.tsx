@@ -82,7 +82,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
           <div
             className={cn(
               "transition-all duration-300 ease-in-out border-l border-[color:var(--color-stroke)]",
-              isChatOpen ? "w-[350px] opacity-100" : "w-0 opacity-0"
+              isChatOpen ? "w-[450px] opacity-100" : "w-0 opacity-0"
             )}
           >
             <CopilotSidebar 

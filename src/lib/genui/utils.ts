@@ -29,8 +29,8 @@ export function injectSnapshotIntoConfig(config: DashboardTool, snapshotId: stri
   } else if (newConfig.layout === "single") {
     newConfig.config.apiEndpoint = snapshotUrl;
   } else if (newConfig.layout === "split") {
-    newConfig.leftChart.apiEndpoint = snapshotUrl;
-    newConfig.rightChart.apiEndpoint = snapshotUrl;
+    newConfig.leftChart.apiEndpoint = `${snapshotUrl}?key=leftChart`;
+    newConfig.rightChart.apiEndpoint = `${snapshotUrl}?key=rightChart`;
   }
   
   return newConfig;

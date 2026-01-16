@@ -40,6 +40,7 @@ import { trace } from "@opentelemetry/api";
 import { langfuseSpanProcessor } from "@/instrumentation";
 import { 
   MetricsService, 
+  CompareEntityConfig,
   SummaryResponse, 
   TrendResponse, 
   BreakdownResponse, 
@@ -57,7 +58,25 @@ export const maxDuration = 30;
  */
 const PARSING_BASE_URL = "http://localhost";
 
-type MetricData = SummaryResponse | SummaryResponse[] | TrendResponse[] | BreakdownResponse[] | UserListResponse[];
+type SummaryMetricKey = "total_interactions" | "total_loc_added" | "acceptance_rate";
+type TrendMetricKey = "interactions" | "loc_added" | "acceptance_rate" | "acceptances" | "suggestions";
+
+interface CompareSummaryResponse {
+  metric: SummaryMetricKey;
+  gap: number;
+  entityA: { label: string; value: number; isHigher: boolean };
+  entityB: { label: string; value: number; isHigher: boolean };
+}
+
+type SeriesPoint = Record<string, number | string>;
+type MetricData =
+  | SummaryResponse
+  | SummaryResponse[]
+  | TrendResponse[]
+  | BreakdownResponse[]
+  | UserListResponse[]
+  | CompareSummaryResponse
+  | SeriesPoint[];
 type HeavyDataType = MetricData | Record<string, MetricData>;
 
 /**
@@ -128,10 +147,14 @@ async function fetchDataForEndpoint(endpoint: string) {
 
   const url = new URL(endpoint, PARSING_BASE_URL);
   const params = url.searchParams;
-  
-  const filters = {
+
+  const dateFilters = {
     startDate: params.get("startDate") ? new Date(params.get("startDate")!) : undefined,
     endDate: params.get("endDate") ? new Date(params.get("endDate")!) : undefined,
+  };
+
+  const filters = {
+    ...dateFilters,
     segment: params.get("segment") || undefined,
     userLogin: params.get("userLogin") || undefined,
   };
@@ -140,7 +163,80 @@ async function fetchDataForEndpoint(endpoint: string) {
   let data: MetricData = [];
   let summary: Record<string, unknown> = {};
 
-  if (path.includes("/summary")) {
+  const parseJsonParam = (value: string | null): unknown => {
+    if (!value) return null;
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  };
+
+  const toCompareEntity = (value: unknown): CompareEntityConfig | null => {
+    if (!value || typeof value !== "object") return null;
+    const obj = value as Record<string, unknown>;
+    const label = typeof obj.label === "string" ? obj.label : undefined;
+    if (!label) return null;
+    const segment = typeof obj.segment === "string" ? obj.segment : undefined;
+    const userLogin = typeof obj.userLogin === "string" ? obj.userLogin : undefined;
+    return {
+      label,
+      ...(segment ? { segment } : {}),
+      ...(userLogin ? { userLogin } : {}),
+    };
+  };
+
+  const trendMetricParam = params.get("metricKey");
+  const summaryMetricParam = params.get("metricKey");
+  const trendMetricKey: TrendMetricKey = (
+    trendMetricParam === "interactions" ||
+    trendMetricParam === "loc_added" ||
+    trendMetricParam === "acceptance_rate" ||
+    trendMetricParam === "acceptances" ||
+    trendMetricParam === "suggestions"
+  ) ? trendMetricParam : "interactions";
+  const summaryMetricKey: SummaryMetricKey = (
+    summaryMetricParam === "total_interactions" ||
+    summaryMetricParam === "total_loc_added" ||
+    summaryMetricParam === "acceptance_rate"
+  ) ? summaryMetricParam : "total_interactions";
+
+  if (path.includes("/compare/summary")) {
+    const entityA = toCompareEntity(parseJsonParam(params.get("entityA")));
+    const entityB = toCompareEntity(parseJsonParam(params.get("entityB")));
+
+    if (entityA && entityB) {
+      const comparison = await MetricsService.getComparisonSummary(entityA, entityB, summaryMetricKey, dateFilters);
+      data = comparison;
+      summary = comparison as unknown as Record<string, unknown>;
+    } else {
+      data = {
+        metric: summaryMetricKey,
+        gap: 0,
+        entityA: { label: entityA?.label || "Entity A", value: 0, isHigher: false },
+        entityB: { label: entityB?.label || "Entity B", value: 0, isHigher: false },
+      };
+      summary = data as CompareSummaryResponse as unknown as Record<string, unknown>;
+    }
+  } else if (path.includes("/compare/trends")) {
+    const parsedQueries = parseJsonParam(params.get("queries"));
+    const entities = Array.isArray(parsedQueries)
+      ? parsedQueries
+          .map((entry) => toCompareEntity(entry))
+          .filter((entity): entity is CompareEntityConfig => entity !== null)
+      : [];
+
+    const seriesData = entities.length
+      ? await MetricsService.getMultiSeriesTrends(entities, trendMetricKey, dateFilters)
+      : [];
+
+    data = seriesData as SeriesPoint[];
+    summary = {
+      series_count: entities.length,
+      series_labels: entities.map((entity) => entity.label),
+      data_points: seriesData.length,
+    };
+  } else if (path.includes("/summary")) {
     const res = await MetricsService.getSummary(filters);
     data = res; // Return object directly for KPIGrid compatibility
     summary = res as unknown as Record<string, unknown>;
@@ -208,16 +304,22 @@ async function fetchDataForConfig(config: DashboardTool) {
 
   } else {
     // Single or Split (Legacy/Simple logic)
-    let targetEndpoint = "";
     if (config.layout === "single") {
-      targetEndpoint = config.config.apiEndpoint;
+      const result = await fetchDataForEndpoint(config.config.apiEndpoint);
+      heavyData = result.data;
+      summary = result.summary;
     } else if (config.layout === "split") {
-      targetEndpoint = config.leftChart.apiEndpoint; // Just fetch left for now, split support incomplete in this refactor
+      const [leftResult, rightResult] = await Promise.all([
+        fetchDataForEndpoint(config.leftChart.apiEndpoint),
+        fetchDataForEndpoint(config.rightChart.apiEndpoint),
+      ]);
+
+      heavyData = {
+        leftChart: leftResult.data,
+        rightChart: rightResult.data,
+      };
+      summary = { ...leftResult.summary, ...rightResult.summary };
     }
-    
-    const result = await fetchDataForEndpoint(targetEndpoint);
-    heavyData = result.data;
-    summary = result.summary;
   }
 
   // If dashboard has headerStats, fetch that summary explicitly if not already done

@@ -101,6 +101,7 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
   let totalCount = 0;
 
   if (data) {
+    console.log('DATA:', data)
     if (Array.isArray(data)) {
       console.log(`[SmartTable] Received Flat Array: ${data.length} items`);
       rows = data; // Legacy/Flat array

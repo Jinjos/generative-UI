@@ -201,7 +201,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         tool: "analyze_data_with_code", 
         args: { 
           endpoint: "/api/metrics/users", 
-          code: "const teams = {}; data.forEach(u => { const team = u.totals_by_feature[0]?.feature || 'Other'; if(!teams[team]) teams[team] = 0; teams[team] += u.loc_deleted_sum; }); return Object.entries(teams).map(([name, val]) => ({ name, val })).sort((a,b) => b.val - a.val);"
+          code: "const teams = {}; data.forEach(u => { const team = u.totals_by_feature[0]?.feature || 'Other'; if(!teams[team]) teams[team] = 0; teams[team] += u.loc_deleted_sum; }); return Object.entries(teams).map(([name, val]) => ({ name, val })).sort((a,b) => b.val - a.val).slice(0, 5);"
         } 
       },
       {
@@ -285,7 +285,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         tool: "analyze_data_with_code", 
         args: { 
           endpoint: "/api/metrics/users", 
-          code: "const users = data.filter(u => u.totals_by_language_model.some(m => m.model === 'o1-preview')); const total = users.reduce((a,b) => a + b.loc_added_sum, 0); return total / (users.length || 1);"
+          code: "const users = data.filter(u => u.totals_by_language_model.some(m => m.model === 'o1-preview')); const total = users.reduce((a,b) => a + b.loc_added_sum, 0); return { avg_loc_added: users.length ? total / users.length : 0, user_count: users.length };"
         } 
       },
       {
@@ -371,7 +371,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Show me George Thompson's activity breakdown. Which models is he experimenting with?",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "return data[0].totals_by_language_model;" } },
+      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const target = data.find(u => u.user_login === 'george_thompson') || data[0]; const models = target?.totals_by_language_model || []; const byModel = {}; models.forEach(m => { const name = m.model || 'Unknown'; byModel[name] = (byModel[name] || 0) + (m.user_initiated_interaction_count || 0); }); return Object.entries(byModel).map(([model, interactions]) => ({ model, interactions })).sort((a,b) => b.interactions - a.interactions).slice(0, 5);" } },
       {
         tool: "render_dashboard", 
         args: {
@@ -386,7 +386,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Identify users who have high 'Code Generation' but low 'Code Acceptance'. Who needs better prompt engineering training?",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "return data.filter(u => u.suggestions > 50 && u.acceptance_rate < 0.2).map(u => ({ user: u.user_login, rate: u.acceptance_rate }));" } },
+      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const matches = data.filter(u => u.suggestions > 50 && u.acceptance_rate < 0.2).map(u => ({ user: u.user_login, rate: u.acceptance_rate, suggestions: u.suggestions })); return { count: matches.length, users: matches.slice(0, 10) };" } },
       {
         tool: "render_dashboard", 
         args: {
@@ -544,7 +544,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "List all developers who had zero interactions between Jan 1st and Jan 15th.",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "return data.filter(u => u.interactions === 0);" } },
+      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const matches = data.filter(u => u.interactions === 0); return { count: matches.length, sample_users: matches.slice(0, 10).map(u => u.user_login) };" } },
       {
         tool: "render_dashboard", 
         args: {
@@ -652,7 +652,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Who had the highest acceptance rate in the last 3 days using typescript?",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users?startDate={3_days_ago}", code: "return data.filter(u => u.totals_by_language_model.some(m => m.language === 'typescript')).sort((a,b) => b.acceptance_rate - a.acceptance_rate)[0];" } },
+      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users?startDate={3_days_ago}", code: "const winner = data.filter(u => u.totals_by_language_model.some(m => m.language === 'typescript')).sort((a,b) => b.acceptance_rate - a.acceptance_rate)[0]; return winner ? { user: winner.user_login, acceptance_rate: winner.acceptance_rate, interactions: winner.interactions } : null;" } },
       {
         tool: "render_dashboard", 
         args: {

@@ -54,11 +54,12 @@ export function SmartChart({
   }
 
   console.log("[SmartChart] Received Data Type:", Array.isArray(data) ? "Array" : "Object", data);
-
   // Robustly extract the array data
   const chartData = Array.isArray(data) 
     ? data 
     : (data.trends || []);
+  console.log("[SmartChart] Series:", series);
+console.log("[SmartChart] Row keys:", Object.keys((chartData[0] || {}) as Record<string, unknown>));
 
   return (
     <div className="rounded-[8px] bg-[var(--color-unit)] p-6 shadow-card h-[340px] flex flex-col">

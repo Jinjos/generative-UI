@@ -99,7 +99,7 @@ export function ChatInterface({
                         <div className="px-3 py-1.5 bg-[var(--color-bg)] rounded-full border border-[color:var(--color-stroke)] flex items-center gap-2">
                           <Icon name="layout" className="w-3 h-3 text-[color:var(--color-secondary)]" />
                           <span className="text-[10px] text-[color:var(--color-secondary)] font-medium uppercase tracking-wider">
-                            {isAvailable ? "Dashboard ready" : "Designing..."}
+                            {isAvailable ? "Dashboard ready" : "Fetching..."}
                           </span>
                         </div>
                         
