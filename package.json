@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "generate:training-data": "tsx scripts/generate_training_data.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
