@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+genui_finetune_*.jsonl
 
 # debug
 npm-debug.log*

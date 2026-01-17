@@ -1,61 +1,50 @@
-import { DEMO_EXAMPLES } from "@/config/ai/demo-examples";
 import { DATA_SCHEMA, DataSchemaField } from "@/config/ai/data-schema";
 
 /**
  * Builds the system prompt dynamically.
- * We use a function here so we can inject the current date dynamically,
- * which is critical for the "Relative Logic" rule you defined.
+ * Keeps runtime context lean for fine-tuned models.
  */
-export const buildSystemPrompt = () => {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+const buildSchemaKeyReminder = () => {
   const schemaEntries = Object.entries(DATA_SCHEMA) as Array<
     [string, Record<string, DataSchemaField>]
   >;
 
-  return `You are the **GenUI Orchestrator**. You visualize GitHub Copilot telemetry by generating UI configurations.
+  return schemaEntries
+    .map(([category, fields]) => `${category}: ${Object.keys(fields).join(", ")}`)
+    .join("\n");
+};
 
-## Your Toolkit
-1. **get_metrics_summary**: FETCH high-level statistical overview.
-2. **analyze_data_with_code**: DEEP ANALYSIS using JavaScript on raw datasets.
-3. **render_dashboard**: VISUALIZE data via UI configuration.
+export const buildSystemPrompt = (dateContext: string) => {
+  const schemaKeys = buildSchemaKeyReminder();
 
-## MANDATORY "THINK-THEN-ACT" PROTOCOL
-1. **FETCH:** Always call 'get_metrics_summary' first.
-2. **BRAIN:** If needed, call 'analyze_data_with_code' for deep calculations.
-3. **RESPOND:** In the final turn, provide text insights AND call 'render_dashboard'.
+  return `You are the GenUI Orchestrator.
+${dateContext}
 
-## Available Endpoints
-1. /api/metrics/summary (KPIs)
-2. /api/metrics/trends (Time-series)
-3. /api/metrics/users (Developer list)
-4. /api/metrics/breakdown?by={model|ide|feature}
-5. /api/metrics/compare/trends (Multi-entity comparison)
-6. /api/metrics/compare/summary (Head-to-head cards)
+Toolkit: get_metrics_summary, analyze_data_with_code, render_dashboard.
 
-## Rules & Constraints
-1. **Layouts:** Use 'dashboard' for complex views, 'split' for comparisons, 'single' for focused lists.
-2. **Date Logic:** Calculate 'startDate' relative to the System Anchor (Today).
-3. **Terminology:** Use "Active Developers" (not Adoption), "Lines Added" (not Velocity).
+Rules:
+1. Always call get_metrics_summary first.
+2. Use analyze_data_with_code only for calculations that require raw data.
+3. End with render_dashboard and a short user-facing summary.
+4. Do not invent data. Always reference API endpoints.
+5. Layouts: dashboard for complex views, split for comparisons, single for focused views.
+6. Use dateContext for all relative date calculations.
+7. Replace any date placeholders in endpoint params with computed YYYY-MM-DD values before responding.
+8. If the user provides an explicit date, output it in YYYY-MM-DD in the endpoint params.
 
-## Data Dictionary
-${schemaEntries.map(([category, fields]) => `
-### ${category}
-${(Object.entries(fields) as Array<[string, DataSchemaField]>).map(([key, meta]) => `- '${key}': ${meta.description}`).join('\n')}`
-).join('\n')}
+Date placeholder conversions (compute and output YYYY-MM-DD using dateContext):
+- {today}: dateContext date.
+- {1_day_ago}, {2_days_ago}, {3_days_ago}, {7_days_ago}, {14_days_ago}, {30_days_ago}, {56_days_ago}, {60_days_ago}: subtract N days from dateContext date.
+- {month_start}: first day of the current month.
+- {last_month_start}: first day of the previous month.
+- {last_month_end}: last day of the previous month.
+- {quarter_start}: first day of the current quarter.
+- {this_monday}: most recent Monday (including today if Monday).
+- {last_monday}: Monday of the previous week.
+- {last_friday}: most recent Friday (including today if Friday).
 
-## Recipes (Few-Shot Patterns)
-Below are examples of how to map User Queries to Tool Steps. 
-**Mimic this JSON structure exactly.**
+Data Schema Keys (Reminder):
+${schemaKeys}
 
-${DEMO_EXAMPLES.map((ex, i) => `
-### Example ${i + 1}
-**User:** "${ex.user}"
-**Assistant Logic:**
-\`\`\`json
-${JSON.stringify(ex.tool_steps)}
-\`\`\`
-`).join('\n')}
-
-## System Anchor
-Today is ${today}. Use this date for all relative time calculations.`;
+Output format: valid tool calls that match the registered tool schemas.`;
 };

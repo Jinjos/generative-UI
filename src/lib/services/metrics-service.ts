@@ -6,6 +6,8 @@ export interface MetricsFilter {
   endDate?: Date;
   segment?: string; // e.g., 'Frontend', 'Backend'
   userLogin?: string; // For auditing a specific developer
+  model?: string;
+  language?: string;
 }
 
 export interface CompareEntityConfig {
@@ -18,6 +20,8 @@ export interface SummaryResponse {
   total_interactions: number;
   total_suggestions: number;
   total_acceptances: number;
+  total_loc_suggested_to_add: number;
+  total_loc_suggested_to_delete: number;
   total_loc_added: number;
   total_loc_deleted: number;
   active_users_count: number;
@@ -33,25 +37,134 @@ export interface TrendResponse {
   interactions: number;
   suggestions: number;
   acceptances: number;
+  acceptance_rate: number;
+  loc_suggested_to_add: number;
+  loc_suggested_to_delete: number;
   loc_added: number;
+  loc_deleted: number;
 }
 
 export interface BreakdownResponse {
   name: string;
+  feature?: string;
+  model?: string;
+  language?: string;
+  ide?: string;
   interactions: number;
   acceptances: number;
   suggestions: number;
+  loc_suggested_to_add: number;
+  loc_suggested_to_delete: number;
+  loc_added: number;
+  loc_deleted: number;
+  active_users_count: number;
+  interactions_per_user: number;
+  loc_added_per_user: number;
+  agent_usage_rate: number;
+  chat_usage_rate: number;
   acceptance_rate: number;
+}
+
+export interface NestedUsageMetric {
+  feature?: string;
+  model?: string;
+  language?: string;
+  ide?: string;
+  user_initiated_interaction_count?: number;
+  code_generation_activity_count?: number;
+  code_acceptance_activity_count?: number;
+  loc_suggested_to_add_sum?: number;
+  loc_suggested_to_delete_sum?: number;
+  loc_added_sum?: number;
+  loc_deleted_sum?: number;
 }
 
 export interface UserListResponse {
   user_login: string;
+  name: string;
   interactions: number;
   suggestions: number;
   acceptances: number;
+  loc_suggested_to_add: number;
+  loc_suggested_to_delete: number;
   loc_added: number;
+  loc_deleted: number;
   ide: string;
+  uses_agent: boolean;
+  uses_chat: boolean;
+  totals_by_feature: NestedUsageMetric[];
+  totals_by_language_feature: NestedUsageMetric[];
+  totals_by_model_feature: NestedUsageMetric[];
+  totals_by_language_model: NestedUsageMetric[];
+  totals_by_ide: NestedUsageMetric[];
   acceptance_rate: number;
+}
+
+export type BreakdownDimension =
+  | "model"
+  | "ide"
+  | "feature"
+  | "language_model"
+  | "language_feature"
+  | "model_feature";
+
+export type BreakdownMetricKey =
+  | "interactions"
+  | "suggestions"
+  | "acceptances"
+  | "loc_suggested_to_add"
+  | "loc_suggested_to_delete"
+  | "loc_added"
+  | "loc_deleted"
+  | "acceptance_rate";
+
+export interface BreakdownComparisonResponse {
+  name: string;
+  feature?: string;
+  model?: string;
+  language?: string;
+  ide?: string;
+  metric: BreakdownMetricKey;
+  current_value: number;
+  previous_value: number;
+  delta: number;
+  delta_pct: number;
+}
+
+export interface BreakdownStabilityResponse {
+  name: string;
+  feature?: string;
+  model?: string;
+  language?: string;
+  ide?: string;
+  metric: BreakdownMetricKey;
+  avg_value: number;
+  stddev_value: number;
+  coefficient_variation: number;
+  days: number;
+}
+
+export interface UserChangeResponse {
+  user_login: string;
+  name: string;
+  metric: BreakdownMetricKey;
+  current_value: number;
+  previous_value: number;
+  delta: number;
+  delta_pct: number;
+}
+
+export interface UserFirstActiveResponse {
+  user_login: string;
+  name: string;
+  first_day: string;
+}
+
+export interface UserUsageRateResponse {
+  total_users: number;
+  agent_user_rate: number;
+  chat_user_rate: number;
+  both_user_rate: number;
 }
 
 export class MetricsService {
@@ -198,6 +311,8 @@ export class MetricsService {
           total_interactions: { $sum: "$user_initiated_interaction_count" },
           total_suggestions: { $sum: "$code_generation_activity_count" },
           total_acceptances: { $sum: "$code_acceptance_activity_count" },
+          total_loc_suggested_to_add: { $sum: "$loc_suggested_to_add_sum" },
+          total_loc_suggested_to_delete: { $sum: "$loc_suggested_to_delete_sum" },
           total_loc_added: { $sum: "$loc_added_sum" },
           total_loc_deleted: { $sum: "$loc_deleted_sum" },
           unique_users: { $addToSet: "$user_id" },
@@ -212,6 +327,8 @@ export class MetricsService {
           total_interactions: 1,
           total_suggestions: 1,
           total_acceptances: 1,
+          total_loc_suggested_to_add: 1,
+          total_loc_suggested_to_delete: 1,
           total_loc_added: 1,
           total_loc_deleted: 1,
           active_users_count: { $size: "$unique_users" },
@@ -234,6 +351,8 @@ export class MetricsService {
       total_interactions: 0,
       total_suggestions: 0,
       total_acceptances: 0,
+      total_loc_suggested_to_add: 0,
+      total_loc_suggested_to_delete: 0,
       total_loc_added: 0,
       total_loc_deleted: 0,
       active_users_count: 0,
@@ -249,8 +368,56 @@ export class MetricsService {
    */
   static async getDailyTrends(filters: MetricsFilter = {}): Promise<TrendResponse[]> {
     await dbConnect();
-    const query = this.buildMatchQuery(filters);
+    const { model, language, ...baseFilters } = filters;
+    const query = this.buildMatchQuery(baseFilters);
     console.log("📊 [MetricsService] getDailyTrends Query:", JSON.stringify(query));
+
+    const nestedMatch: Record<string, string> = {};
+    if (model) nestedMatch["totals_by_language_model.model"] = model;
+    if (language) nestedMatch["totals_by_language_model.language"] = language;
+
+    if (model || language) {
+      return await UserMetric.aggregate([
+        { $match: query },
+        { $unwind: "$totals_by_language_model" },
+        ...(Object.keys(nestedMatch).length ? [{ $match: nestedMatch }] : []),
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$day" } },
+            active_users: { $addToSet: "$user_id" },
+            interactions: { $sum: "$totals_by_language_model.user_initiated_interaction_count" },
+            suggestions: { $sum: "$totals_by_language_model.code_generation_activity_count" },
+            acceptances: { $sum: "$totals_by_language_model.code_acceptance_activity_count" },
+            loc_suggested_to_add: { $sum: "$totals_by_language_model.loc_suggested_to_add_sum" },
+            loc_suggested_to_delete: { $sum: "$totals_by_language_model.loc_suggested_to_delete_sum" },
+            loc_added: { $sum: "$totals_by_language_model.loc_added_sum" },
+            loc_deleted: { $sum: "$totals_by_language_model.loc_deleted_sum" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            date: "$_id",
+            active_users: { $size: "$active_users" },
+            interactions: 1,
+            suggestions: 1,
+            acceptances: 1,
+            loc_suggested_to_add: 1,
+            loc_suggested_to_delete: 1,
+            loc_added: 1,
+            loc_deleted: 1,
+            acceptance_rate: {
+              $cond: [
+                { $gt: ["$suggestions", 0] },
+                { $divide: ["$acceptances", "$suggestions"] },
+                0,
+              ],
+            },
+          },
+        },
+        { $sort: { date: 1 } },
+      ]);
+    }
 
     return await UserMetric.aggregate([
       { $match: query },
@@ -261,7 +428,10 @@ export class MetricsService {
           interactions: { $sum: "$user_initiated_interaction_count" },
           suggestions: { $sum: "$code_generation_activity_count" },
           acceptances: { $sum: "$code_acceptance_activity_count" },
+          loc_suggested_to_add: { $sum: "$loc_suggested_to_add_sum" },
+          loc_suggested_to_delete: { $sum: "$loc_suggested_to_delete_sum" },
           loc_added: { $sum: "$loc_added_sum" },
+          loc_deleted: { $sum: "$loc_deleted_sum" },
         },
       },
       {
@@ -272,7 +442,17 @@ export class MetricsService {
           interactions: 1,
           suggestions: 1,
           acceptances: 1,
+          loc_suggested_to_add: 1,
+          loc_suggested_to_delete: 1,
           loc_added: 1,
+          loc_deleted: 1,
+          acceptance_rate: {
+            $cond: [
+              { $gt: ["$suggestions", 0] },
+              { $divide: ["$acceptances", "$suggestions"] },
+              0,
+            ],
+          },
         },
       },
       { $sort: { date: 1 } },
@@ -282,32 +462,129 @@ export class MetricsService {
   /**
    * Pivots data by a dimension (e.g., 'model' or 'ide')
    */
-  static async getBreakdown(dimension: "model" | "ide", filters: MetricsFilter = {}): Promise<BreakdownResponse[]> {
+  static async getBreakdown(dimension: BreakdownDimension, filters: MetricsFilter = {}): Promise<BreakdownResponse[]> {
     await dbConnect();
-    const query = this.buildMatchQuery(filters);
-    
-    const arrayPath = dimension === "model" ? "$totals_by_language_model" : "$totals_by_ide";
-    const groupField = dimension === "model" ? "model" : "ide";
+    const { model, language, ...baseFilters } = filters;
+    const query = this.buildMatchQuery(baseFilters);
+
+    const configs: Record<BreakdownDimension, {
+      arrayPath: string;
+      groupId: Record<string, string>;
+      nameExpression: Record<string, unknown> | string;
+      idFields: Array<"feature" | "model" | "language" | "ide">;
+    }> = {
+      ide: {
+        arrayPath: "$totals_by_ide",
+        groupId: { ide: "$totals_by_ide.ide" },
+        nameExpression: "$_id.ide",
+        idFields: ["ide"],
+      },
+      model: {
+        arrayPath: "$totals_by_language_model",
+        groupId: { model: "$totals_by_language_model.model" },
+        nameExpression: "$_id.model",
+        idFields: ["model"],
+      },
+      feature: {
+        arrayPath: "$totals_by_feature",
+        groupId: { feature: "$totals_by_feature.feature" },
+        nameExpression: "$_id.feature",
+        idFields: ["feature"],
+      },
+      language_model: {
+        arrayPath: "$totals_by_language_model",
+        groupId: {
+          language: "$totals_by_language_model.language",
+          model: "$totals_by_language_model.model",
+        },
+        nameExpression: { $concat: ["$_id.language", " | ", "$_id.model"] },
+        idFields: ["language", "model"],
+      },
+      language_feature: {
+        arrayPath: "$totals_by_language_feature",
+        groupId: {
+          language: "$totals_by_language_feature.language",
+          feature: "$totals_by_language_feature.feature",
+        },
+        nameExpression: { $concat: ["$_id.language", " | ", "$_id.feature"] },
+        idFields: ["language", "feature"],
+      },
+      model_feature: {
+        arrayPath: "$totals_by_model_feature",
+        groupId: {
+          model: "$totals_by_model_feature.model",
+          feature: "$totals_by_model_feature.feature",
+        },
+        nameExpression: { $concat: ["$_id.model", " | ", "$_id.feature"] },
+        idFields: ["model", "feature"],
+      },
+    };
+
+    const config = configs[dimension];
+    const arrayPath = config.arrayPath;
+    const elementMatch: Record<string, string> = {};
+
+    if (model && (dimension === "model" || dimension === "language_model" || dimension === "model_feature")) {
+      elementMatch[`${arrayPath}.model`] = model;
+    }
+
+    if (language && (dimension === "language_model" || dimension === "language_feature")) {
+      elementMatch[`${arrayPath}.language`] = language;
+    }
+
+    const idProjects = config.idFields.reduce<Record<string, unknown>>((acc, field) => {
+      acc[field] = `$_id.${field}`;
+      return acc;
+    }, {});
 
     return await UserMetric.aggregate([
       { $match: query },
       { $unwind: arrayPath },
+      ...(Object.keys(elementMatch).length ? [{ $match: elementMatch }] : []),
       {
         $group: {
-          _id: `${arrayPath}.${groupField}`,
-          count: { $sum: 1 },
+          _id: config.groupId,
           interactions: { $sum: `${arrayPath}.user_initiated_interaction_count` },
-          acceptances: { $sum: `${arrayPath}.code_acceptance_activity_count` },
           suggestions: { $sum: `${arrayPath}.code_generation_activity_count` },
+          acceptances: { $sum: `${arrayPath}.code_acceptance_activity_count` },
+          loc_suggested_to_add: { $sum: `${arrayPath}.loc_suggested_to_add_sum` },
+          loc_suggested_to_delete: { $sum: `${arrayPath}.loc_suggested_to_delete_sum` },
+          loc_added: { $sum: `${arrayPath}.loc_added_sum` },
+          loc_deleted: { $sum: `${arrayPath}.loc_deleted_sum` },
+          unique_users: { $addToSet: "$user_id" },
+          agent_usage_rate: { $avg: { $cond: ["$used_agent", 1, 0] } },
+          chat_usage_rate: { $avg: { $cond: ["$used_chat", 1, 0] } },
         },
       },
       {
         $project: {
           _id: 0,
-          name: "$_id",
+          name: config.nameExpression,
+          ...idProjects,
           interactions: 1,
-          acceptances: 1,
           suggestions: 1,
+          acceptances: 1,
+          loc_suggested_to_add: 1,
+          loc_suggested_to_delete: 1,
+          loc_added: 1,
+          loc_deleted: 1,
+          active_users_count: { $size: "$unique_users" },
+          interactions_per_user: {
+            $cond: [
+              { $gt: [{ $size: "$unique_users" }, 0] },
+              { $divide: ["$interactions", { $size: "$unique_users" }] },
+              0,
+            ],
+          },
+          loc_added_per_user: {
+            $cond: [
+              { $gt: [{ $size: "$unique_users" }, 0] },
+              { $divide: ["$loc_added", { $size: "$unique_users" }] },
+              0,
+            ],
+          },
+          agent_usage_rate: 1,
+          chat_usage_rate: 1,
           acceptance_rate: {
             $cond: [
               { $gt: ["$suggestions", 0] },
@@ -319,6 +596,316 @@ export class MetricsService {
       },
       { $sort: { interactions: -1 } },
     ]);
+  }
+
+  /**
+   * Compares grouped breakdown metrics between two time ranges.
+   */
+  static async getBreakdownComparison(
+    dimension: BreakdownDimension,
+    metricKey: BreakdownMetricKey,
+    currentFilters: MetricsFilter = {},
+    compareFilters: MetricsFilter = {}
+  ): Promise<BreakdownComparisonResponse[]> {
+    const current = await this.getBreakdown(dimension, currentFilters);
+    const previous = await this.getBreakdown(dimension, compareFilters);
+
+    const previousMap = new Map(previous.map((item) => [item.name, item]));
+
+    return current.map((item) => {
+      const previousItem = previousMap.get(item.name);
+      const currentValue = Number(item[metricKey as keyof BreakdownResponse] ?? 0);
+      const previousValue = Number(previousItem?.[metricKey as keyof BreakdownResponse] ?? 0);
+      const delta = currentValue - previousValue;
+      const deltaPct = previousValue > 0 ? delta / previousValue : (currentValue > 0 ? 1 : 0);
+
+      return {
+        name: item.name,
+        feature: item.feature,
+        model: item.model,
+        language: item.language,
+        ide: item.ide,
+        metric: metricKey,
+        current_value: currentValue,
+        previous_value: previousValue,
+        delta,
+        delta_pct: deltaPct,
+      };
+    });
+  }
+
+  /**
+   * Calculates stability (variance) for a breakdown dimension across days.
+   */
+  static async getBreakdownStability(
+    dimension: BreakdownDimension,
+    metricKey: BreakdownMetricKey,
+    filters: MetricsFilter = {}
+  ): Promise<BreakdownStabilityResponse[]> {
+    await dbConnect();
+    const { model, language, ...baseFilters } = filters;
+    const query = this.buildMatchQuery(baseFilters);
+
+    const configs: Record<BreakdownDimension, {
+      arrayPath: string;
+      groupId: Record<string, string>;
+      nameExpression: Record<string, unknown> | string;
+      idFields: Array<"feature" | "model" | "language" | "ide">;
+    }> = {
+      ide: {
+        arrayPath: "$totals_by_ide",
+        groupId: { ide: "$totals_by_ide.ide" },
+        nameExpression: "$_id.ide",
+        idFields: ["ide"],
+      },
+      model: {
+        arrayPath: "$totals_by_language_model",
+        groupId: { model: "$totals_by_language_model.model" },
+        nameExpression: "$_id.model",
+        idFields: ["model"],
+      },
+      feature: {
+        arrayPath: "$totals_by_feature",
+        groupId: { feature: "$totals_by_feature.feature" },
+        nameExpression: "$_id.feature",
+        idFields: ["feature"],
+      },
+      language_model: {
+        arrayPath: "$totals_by_language_model",
+        groupId: {
+          language: "$totals_by_language_model.language",
+          model: "$totals_by_language_model.model",
+        },
+        nameExpression: { $concat: ["$_id.language", " | ", "$_id.model"] },
+        idFields: ["language", "model"],
+      },
+      language_feature: {
+        arrayPath: "$totals_by_language_feature",
+        groupId: {
+          language: "$totals_by_language_feature.language",
+          feature: "$totals_by_language_feature.feature",
+        },
+        nameExpression: { $concat: ["$_id.language", " | ", "$_id.feature"] },
+        idFields: ["language", "feature"],
+      },
+      model_feature: {
+        arrayPath: "$totals_by_model_feature",
+        groupId: {
+          model: "$totals_by_model_feature.model",
+          feature: "$totals_by_model_feature.feature",
+        },
+        nameExpression: { $concat: ["$_id.model", " | ", "$_id.feature"] },
+        idFields: ["model", "feature"],
+      },
+    };
+
+    const config = configs[dimension];
+    const arrayPath = config.arrayPath;
+    const elementMatch: Record<string, string> = {};
+
+    if (model && (dimension === "model" || dimension === "language_model" || dimension === "model_feature")) {
+      elementMatch[`${arrayPath}.model`] = model;
+    }
+
+    if (language && (dimension === "language_model" || dimension === "language_feature")) {
+      elementMatch[`${arrayPath}.language`] = language;
+    }
+
+    const idProjects = config.idFields.reduce<Record<string, unknown>>((acc, field) => {
+      acc[field] = `$_id.${field}`;
+      return acc;
+    }, {});
+
+    const projectedGroupId = config.idFields.reduce<Record<string, unknown>>((acc, field) => {
+      acc[field] = `$${field}`;
+      return acc;
+    }, {});
+
+    const valueExpression = metricKey === "acceptance_rate"
+      ? {
+          $cond: [
+            { $gt: ["$suggestions", 0] },
+            { $divide: ["$acceptances", "$suggestions"] },
+            0,
+          ],
+        }
+      : `$${metricKey}`;
+
+    return await UserMetric.aggregate([
+      { $match: query },
+      { $unwind: arrayPath },
+      ...(Object.keys(elementMatch).length ? [{ $match: elementMatch }] : []),
+      {
+        $group: {
+          _id: {
+            ...config.groupId,
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$day" } },
+          },
+          interactions: { $sum: `${arrayPath}.user_initiated_interaction_count` },
+          suggestions: { $sum: `${arrayPath}.code_generation_activity_count` },
+          acceptances: { $sum: `${arrayPath}.code_acceptance_activity_count` },
+          loc_suggested_to_add: { $sum: `${arrayPath}.loc_suggested_to_add_sum` },
+          loc_suggested_to_delete: { $sum: `${arrayPath}.loc_suggested_to_delete_sum` },
+          loc_added: { $sum: `${arrayPath}.loc_added_sum` },
+          loc_deleted: { $sum: `${arrayPath}.loc_deleted_sum` },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          ...idProjects,
+          value: valueExpression,
+        },
+      },
+      {
+        $group: {
+          _id: projectedGroupId,
+          avg_value: { $avg: "$value" },
+          stddev_value: { $stdDevPop: "$value" },
+          days: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: config.nameExpression,
+          ...idProjects,
+          metric: metricKey,
+          avg_value: 1,
+          stddev_value: 1,
+          coefficient_variation: {
+            $cond: [
+              { $gt: ["$avg_value", 0] },
+              { $divide: ["$stddev_value", "$avg_value"] },
+              0,
+            ],
+          },
+          days: 1,
+        },
+      },
+      { $sort: { coefficient_variation: 1 } },
+    ]);
+  }
+
+  /**
+   * Computes per-user deltas between two periods for a chosen metric.
+   */
+  static async getUserChange(
+    metricKey: BreakdownMetricKey,
+    currentFilters: MetricsFilter = {},
+    compareFilters: MetricsFilter = {}
+  ): Promise<UserChangeResponse[]> {
+    const current = await this.getUsersList(currentFilters);
+    const previous = await this.getUsersList(compareFilters);
+
+    const previousMap = new Map(previous.map((item) => [item.user_login, item]));
+
+    return current.map((item) => {
+      const previousItem = previousMap.get(item.user_login);
+      const currentValue = Number(item[metricKey as keyof UserListResponse] ?? 0);
+      const previousValue = Number(previousItem?.[metricKey as keyof UserListResponse] ?? 0);
+      const delta = currentValue - previousValue;
+      const deltaPct = previousValue > 0 ? delta / previousValue : (currentValue > 0 ? 1 : 0);
+
+      return {
+        user_login: item.user_login,
+        name: item.name,
+        metric: metricKey,
+        current_value: currentValue,
+        previous_value: previousValue,
+        delta,
+        delta_pct: deltaPct,
+      };
+    });
+  }
+
+  /**
+   * Finds users whose first activity falls within a given range.
+   */
+  static async getUsersFirstActive(filters: MetricsFilter = {}): Promise<UserFirstActiveResponse[]> {
+    await dbConnect();
+    const { startDate, endDate, ...baseFilters } = filters;
+    const query = this.buildMatchQuery(baseFilters);
+    const dateMatch: { first_day?: { $gte?: Date; $lte?: Date } } = {};
+
+    if (startDate || endDate) {
+      dateMatch.first_day = {};
+      if (startDate) dateMatch.first_day.$gte = startDate;
+      if (endDate) dateMatch.first_day.$lte = endDate;
+    }
+
+    const result = await UserMetric.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$user_login",
+          name: { $first: "$user_name" },
+          first_day: { $min: "$day" },
+        },
+      },
+      ...(dateMatch.first_day ? [{ $match: dateMatch }] : []),
+      {
+        $project: {
+          _id: 0,
+          user_login: "$_id",
+          name: { $ifNull: ["$name", "$_id"] },
+          first_day: { $dateToString: { format: "%Y-%m-%d", date: "$first_day" } },
+        },
+      },
+      { $sort: { first_day: -1 } },
+    ]);
+
+    return result as UserFirstActiveResponse[];
+  }
+
+  /**
+   * Calculates user-level adoption rates for Agent and Chat usage.
+   */
+  static async getUsersUsageRates(filters: MetricsFilter = {}): Promise<UserUsageRateResponse> {
+    await dbConnect();
+    const query = this.buildMatchQuery(filters);
+
+    const result = await UserMetric.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$user_id",
+          used_agent: { $max: "$used_agent" },
+          used_chat: { $max: "$used_chat" },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total_users: { $sum: 1 },
+          agent_users: { $sum: { $cond: ["$used_agent", 1, 0] } },
+          chat_users: { $sum: { $cond: ["$used_chat", 1, 0] } },
+          both_users: { $sum: { $cond: [{ $and: ["$used_agent", "$used_chat"] }, 1, 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          total_users: 1,
+          agent_user_rate: {
+            $cond: [{ $gt: ["$total_users", 0] }, { $divide: ["$agent_users", "$total_users"] }, 0],
+          },
+          chat_user_rate: {
+            $cond: [{ $gt: ["$total_users", 0] }, { $divide: ["$chat_users", "$total_users"] }, 0],
+          },
+          both_user_rate: {
+            $cond: [{ $gt: ["$total_users", 0] }, { $divide: ["$both_users", "$total_users"] }, 0],
+          },
+        },
+      },
+    ]);
+
+    return (result[0] || {
+      total_users: 0,
+      agent_user_rate: 0,
+      chat_user_rate: 0,
+      both_user_rate: 0,
+    }) as UserUsageRateResponse;
   }
 
   /**
@@ -347,12 +934,20 @@ export class MetricsService {
           interactions: { $sum: "$user_initiated_interaction_count" },
           suggestions: { $sum: "$code_generation_activity_count" },
           acceptances: { $sum: "$code_acceptance_activity_count" },
+          loc_suggested_to_add: { $sum: "$loc_suggested_to_add_sum" },
+          loc_suggested_to_delete: { $sum: "$loc_suggested_to_delete_sum" },
           loc_added: { $sum: "$loc_added_sum" },
+          loc_deleted: { $sum: "$loc_deleted_sum" },
           // Capture the last known IDE for this user
           ide: { $last: { $arrayElemAt: ["$totals_by_ide.ide", 0] } },
+          uses_agent: { $max: "$used_agent" },
+          uses_chat: { $max: "$used_chat" },
           // Accumulate all nested arrays for deep analysis (Code Interpreter)
           totals_by_language_model: { $push: "$totals_by_language_model" },
-          totals_by_ide: { $push: "$totals_by_ide" }
+          totals_by_ide: { $push: "$totals_by_ide" },
+          totals_by_feature: { $push: "$totals_by_feature" },
+          totals_by_language_feature: { $push: "$totals_by_language_feature" },
+          totals_by_model_feature: { $push: "$totals_by_model_feature" }
         },
       },
       {
@@ -363,8 +958,13 @@ export class MetricsService {
           interactions: 1,
           suggestions: 1,
           acceptances: 1,
+          loc_suggested_to_add: 1,
+          loc_suggested_to_delete: 1,
           loc_added: 1,
+          loc_deleted: 1,
           ide: 1,
+          uses_agent: 1,
+          uses_chat: 1,
           // Flatten the accumulated arrays (since $push creates array of arrays)
           totals_by_language_model: {
             $reduce: {
@@ -376,6 +976,27 @@ export class MetricsService {
           totals_by_ide: {
             $reduce: {
               input: "$totals_by_ide",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
+          totals_by_feature: {
+            $reduce: {
+              input: "$totals_by_feature",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
+          totals_by_language_feature: {
+            $reduce: {
+              input: "$totals_by_language_feature",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          },
+          totals_by_model_feature: {
+            $reduce: {
+              input: "$totals_by_model_feature",
               initialValue: [],
               in: { $concatArrays: ["$$value", "$$this"] }
             }
@@ -397,6 +1018,8 @@ export class MetricsService {
     const query: {
       day?: { $gte?: Date; $lte?: Date };
       "totals_by_feature.feature"?: string | { $regex: RegExp };
+      "totals_by_language_model.model"?: string;
+      "totals_by_language_model.language"?: string;
       user_login?: string;
     } = {};
 
@@ -415,6 +1038,14 @@ export class MetricsService {
 
     if (filters.userLogin) {
       query.user_login = filters.userLogin;
+    }
+
+    if (filters.model) {
+      query["totals_by_language_model.model"] = filters.model;
+    }
+
+    if (filters.language) {
+      query["totals_by_language_model.language"] = filters.language;
     }
 
     return query;

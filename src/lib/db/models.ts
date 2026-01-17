@@ -26,6 +26,8 @@ const IDEUsageSchema = new Schema({
 
 const FeatureUsageSchema = new Schema({
   feature: String,
+  model: String,
+  language: String,
   user_initiated_interaction_count: Number,
   code_generation_activity_count: Number,
   code_acceptance_activity_count: Number,

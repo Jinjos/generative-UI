@@ -75,8 +75,8 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
               apiEndpoint: "/api/metrics/summary", 
               title: "Noise Ratio",
               kpiDefinitions: [
-                { key: "suggestions", label: "Suggestions", format: "number" },
-                { key: "acceptances", label: "Acceptances", format: "number" },
+                { key: "total_suggestions", label: "Suggestions", format: "number" },
+                { key: "total_acceptances", label: "Acceptances", format: "number" },
                 { key: "acceptance_rate", label: "Ratio", format: "number" }
               ]
             }
@@ -88,7 +88,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "What percentage of our total users are actually using the 'Agent' capability versus just 'Chat'?",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/summary" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users/usage-rate" } },
       {
         tool: "render_dashboard", 
         args: { 
@@ -96,11 +96,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             layout: "single",
             config: { 
               component: "KPIGrid", 
-              apiEndpoint: "/api/metrics/summary", 
+              apiEndpoint: "/api/metrics/users/usage-rate", 
               title: "Adoption", 
               kpiDefinitions: [
-                { key: "uses_agent", label: "Agent Users", format: "percentage" },
-                { key: "uses_chat", label: "Chat Users", format: "percentage" }
+                { key: "agent_user_rate", label: "Agent Users", format: "percentage" },
+                { key: "chat_user_rate", label: "Chat Users", format: "percentage" },
+                { key: "both_user_rate", label: "Both", format: "percentage" }
               ] 
             }
           }
@@ -117,7 +118,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: { 
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={14_days_ago}", title: "Velocity Trend" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={14_days_ago}", 
+              title: "Velocity Trend",
+              chartSeries: [{ key: "loc_added", label: "LOC Added", color: "#10b981" }]
+            }
           }
         } 
       }
@@ -142,7 +148,11 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             rightChart: {
               component: "SmartChart", 
               apiEndpoint: "/api/metrics/compare/trends?queries=[{\"label\":\"QA\",\"segment\":\"QA\"},{\"label\":\"Backend\",\"segment\":\"Backend-Core\"}]&metricKey=acceptance_rate", 
-              title: "Daily Quality Comparison" 
+              title: "Daily Quality Comparison",
+              chartSeries: [
+                { key: "QA", label: "QA", color: "#3b82f6" },
+                { key: "Backend", label: "Backend", color: "#10b981" }
+              ] 
             }
           }
         }
@@ -158,7 +168,15 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: { 
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/breakdown?by=feature", title: "Interactions by Team" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/breakdown?by=feature", 
+              title: "Interactions by Team",
+              tableColumns: [
+                { key: "name", label: "Team" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         } 
       }
@@ -173,7 +191,13 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: { 
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/breakdown?by=feature", title: "Generation Activity by Team" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/breakdown?by=feature", 
+              title: "Generation Activity by Team",
+              xAxisKey: "name",
+              chartSeries: [{ key: "suggestions", label: "Suggestions", color: "#f59e0b" }]
+            }
           }
         } 
       }
@@ -198,11 +222,8 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
     user: "Rank all teams by total 'LOC Deleted'. Who is doing the most refactoring?",
     tool_steps: [
       {
-        tool: "analyze_data_with_code", 
-        args: { 
-          endpoint: "/api/metrics/users", 
-          code: "const teams = {}; data.forEach(u => { const team = u.totals_by_feature[0]?.feature || 'Other'; if(!teams[team]) teams[team] = 0; teams[team] += u.loc_deleted_sum; }); return Object.entries(teams).map(([name, val]) => ({ name, val })).sort((a,b) => b.val - a.val).slice(0, 5);"
-        } 
+        tool: "get_metrics_summary", 
+        args: { endpoint: "/api/metrics/breakdown?by=feature" } 
       },
       {
         tool: "render_dashboard", 
@@ -211,9 +232,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable", 
-              apiEndpoint: "/api/metrics/users", 
+              apiEndpoint: "/api/metrics/breakdown?by=feature", 
               title: "Refactoring Leaderboard", 
-              tableColumns: [{ key: "feature", label: "Team" }, { key: "loc_deleted", label: "Lines Deleted", format: "number" }]
+              tableColumns: [
+                { key: "name", label: "Team" }, 
+                { key: "loc_deleted", label: "Lines Deleted", format: "number" }
+              ]
             }
           }
         }
@@ -225,18 +249,23 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Compare gpt-4o vs. claude-3-5-sonnet for TypeScript files. Which model writes better code?",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/compare/trends?queries=[{\"label\":\"GPT-4o\",\"model\":\"gpt-4o\",\"language\":\"typescript\"},{\"label\":\"Claude 3.5\",\"model\":\"claude-3-5-sonnet\",\"language\":\"typescript\"}]&metricKey=acceptance_rate" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=language_model&language=typescript" } },
       {
         tool: "render_dashboard", 
         args: { 
           config: {
-            layout: "split",
-            leftChart: {
-              component: "SmartChart", 
-              apiEndpoint: "/api/metrics/compare/trends?queries=[{\"label\":\"GPT-4o\",\"model\":\"gpt-4o\",\"language\":\"typescript\"},{\"label\":\"Claude 3.5\",\"model\":\"claude-3-5-sonnet\",\"language\":\"typescript\"}]&metricKey=acceptance_rate", 
-              title: "Model Quality (TS)" 
-            },
-            rightChart: { component: "SmartChart", apiEndpoint: "/api/metrics/breakdown?by=model", title: "Total Volume" }
+            layout: "single",
+            config: {
+              component: "SmartTable",
+              apiEndpoint: "/api/metrics/breakdown?by=language_model&language=typescript",
+              title: "Model Quality (TypeScript)",
+              tableColumns: [
+                { key: "model", label: "Model" },
+                { key: "language", label: "Language" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -245,13 +274,22 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "What is the acceptance rate for o1-preview? Is it worth the cost compared to llama-3-70b?",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/compare/summary?entityA={ \"label\": \"o1-preview\", \"model\": \"o1-preview\" }&entityB={ \"label\": \"Llama 3\", \"model\": \"llama-3-70b\" }&metricKey=acceptance_rate" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=model" } },
       {
         tool: "render_dashboard", 
         args: { 
           config: {
             layout: "single",
-            config: { component: "CompareStatCard", apiEndpoint: "/api/metrics/compare/summary?entityA={ \"label\": \"o1-preview\", \"model\": \"o1-preview\" }&entityB={ \"label\": \"Llama 3\", \"model\": \"llama-3-70b\" }&metricKey=acceptance_rate", title: "Model Efficiency Gap" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/breakdown?by=model", 
+              title: "Model Acceptance Rates",
+              tableColumns: [
+                { key: "model", label: "Model" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -270,6 +308,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
                 component: "SmartChart", 
                 apiEndpoint: "/api/metrics/breakdown?by=model", 
                 title: "Provider Distribution",
+                xAxisKey: "name",
                 chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
               }
             }
@@ -279,21 +318,27 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
     },
   
   {
-    user: "For developers using o1-preview, what is their average LOC added per day?",
+    user: "For developers using o1-preview, what is their average LOC added per user?",
     tool_steps: [
       {
-        tool: "analyze_data_with_code", 
-        args: { 
-          endpoint: "/api/metrics/users", 
-          code: "const users = data.filter(u => u.totals_by_language_model.some(m => m.model === 'o1-preview')); const total = users.reduce((a,b) => a + b.loc_added_sum, 0); return { avg_loc_added: users.length ? total / users.length : 0, user_count: users.length };"
-        } 
+        tool: "get_metrics_summary", 
+        args: { endpoint: "/api/metrics/breakdown?by=model&model=o1-preview" } 
       },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartStatCard", title: "Avg LOC (o1-preview)", apiEndpoint: "/api/metrics/summary", dataKey: "total_loc_added" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/breakdown?by=model&model=o1-preview", 
+              title: "Avg LOC per User (o1-preview)",
+              tableColumns: [
+                { key: "model", label: "Model" },
+                { key: "loc_added_per_user", label: "Avg LOC Added", format: "number" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -308,7 +353,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={7_days_ago}&model=claude-3-5-sonnet", title: "Claude 3.5 Weekly Trend" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={7_days_ago}&model=claude-3-5-sonnet", 
+              title: "Claude 3.5 Weekly Trend",
+              chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
+            }
           }
         }
       }
@@ -342,16 +392,25 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
           config: {
             layout: "split",
             leftChart: { component: "CompareStatCard", apiEndpoint: "/api/metrics/compare/summary?entityA={ \"label\": \"James\", \"userLogin\": \"james_wilson\" }&entityB={ \"label\": \"Brian\", \"userLogin\": \"brian_williams\" }&metricKey=acceptance_rate", title: "Efficiency Comparison" },
-            rightChart: { component: "SmartTable", apiEndpoint: "/api/metrics/users", title: "User Details" }
+            rightChart: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users", 
+              title: "User Details",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "interactions", label: "Interactions", format: "number" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" }
+              ]
+            }
           }
         }
       }
     ]
   },
   {
-    user: "Who are my 'Power Users' (Top 5 by interaction count)?",
+    user: "Who are my power users by interaction count?",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?sortKey=interactions&sortOrder=desc&limit=5" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users" } },
       {
         tool: "render_dashboard", 
         args: {
@@ -359,8 +418,8 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable", 
-              apiEndpoint: "/api/metrics/users?sortKey=interactions&sortOrder=desc&limit=5", 
-              title: "Top 5 Power Users", 
+              apiEndpoint: "/api/metrics/users", 
+              title: "Power Users", 
               tableColumns: [{ key: "user_login", label: "User" }, { key: "interactions", label: "Interactions", format: "number" }, { key: "acceptance_rate", label: "Quality", format: "percentage" }]
             }
           }
@@ -371,13 +430,22 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Show me George Thompson's activity breakdown. Which models is he experimenting with?",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const target = data.find(u => u.user_login === 'george_thompson') || data[0]; const models = target?.totals_by_language_model || []; const byModel = {}; models.forEach(m => { const name = m.model || 'Unknown'; byModel[name] = (byModel[name] || 0) + (m.user_initiated_interaction_count || 0); }); return Object.entries(byModel).map(([model, interactions]) => ({ model, interactions })).sort((a,b) => b.interactions - a.interactions).slice(0, 5);" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=language_model&userLogin=george_thompson" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users?userLogin=george_thompson", title: "George's Model Lab", tableColumns: [{ key: "model", label: "AI Model" }, { key: "language", label: "Language" }, { key: "interactions", label: "Activity" }] }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/breakdown?by=language_model&userLogin=george_thompson", 
+              title: "George's Model Lab", 
+              tableColumns: [
+                { key: "model", label: "AI Model" }, 
+                { key: "language", label: "Language" }, 
+                { key: "interactions", label: "Activity", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -386,13 +454,23 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Identify users who have high 'Code Generation' but low 'Code Acceptance'. Who needs better prompt engineering training?",
     tool_steps: [
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users" } },
       { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const matches = data.filter(u => u.suggestions > 50 && u.acceptance_rate < 0.2).map(u => ({ user: u.user_login, rate: u.acceptance_rate, suggestions: u.suggestions })); return { count: matches.length, users: matches.slice(0, 10) };" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users", title: "Efficiency Training Audit" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users", 
+              title: "Efficiency Training Audit",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "suggestions", label: "Suggestions", format: "number" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" }
+              ]
+            }
           }
         }
       }
@@ -424,22 +502,36 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={2_days_ago}&userLogin=brian_williams", title: "Brian's Daily Quality" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={2_days_ago}&userLogin=brian_williams", 
+              title: "Brian's Daily Quality",
+              chartSeries: [{ key: "acceptance_rate", label: "Acceptance Rate", color: "#3b82f6" }]
+            }
           }
         }
       }
     ]
   },
   {
-    user: "Who were the top 3 contributors by LOC added this week?",
+    user: "Show contributors and LOC added this week.",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate={7_days_ago}&sortKey=interactions&sortOrder=desc&limit=3" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate={7_days_ago}" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users?startDate={7_days_ago}&sortKey=interactions&sortOrder=desc&limit=3", title: "Weekly Top Contributors" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users?startDate={7_days_ago}", 
+              title: "Weekly Contributors",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "loc_added", label: "LOC Added", format: "number" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -448,13 +540,21 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Compare gpt-4o vs o1-preview usage for the last 24 hours.",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/compare/summary?startDate={1_day_ago}&entityA={ \"label\": \"GPT-4o\", \"model\": \"gpt-4o\" }&entityB={ \"label\": \"o1-preview\", \"model\": \"o1-preview\" }&metricKey=total_interactions" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=model&startDate={1_day_ago}" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "CompareStatCard", apiEndpoint: "/api/metrics/compare/summary?startDate={1_day_ago}&entityA={ \"label\": \"GPT-4o\", \"model\": \"gpt-4o\" }&entityB={ \"label\": \"o1-preview\", \"model\": \"o1-preview\" }&metricKey=total_interactions", title: "Last 24h Model Battle" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/breakdown?by=model&startDate={1_day_ago}", 
+              title: "Last 24h Model Usage",
+              tableColumns: [
+                { key: "model", label: "Model" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -469,7 +569,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={this_monday}&segment=Backend-Core", title: "Backend Velocity (Week-to-Date)" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={this_monday}&segment=Backend-Core", 
+              title: "Backend Velocity (Week-to-Date)",
+              chartSeries: [{ key: "loc_added", label: "LOC Added", color: "#10b981" }]
+            }
           }
         }
       }
@@ -517,8 +622,9 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartChart", 
-              apiEndpoint: "/api/metrics/breakdown?by=model", 
+              apiEndpoint: "/api/metrics/breakdown?by=model&startDate={last_month_start}&endDate={last_month_end}", 
               title: "Monthly Model Popularity",
+              xAxisKey: "name",
               chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
             }
           }
@@ -542,15 +648,24 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
     ]
   },
   {
-    user: "List all developers who had zero interactions between Jan 1st and Jan 15th.",
+    user: "List developers and interactions between Jan 1st and Jan 15th.",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users", code: "const matches = data.filter(u => u.interactions === 0); return { count: matches.length, sample_users: matches.slice(0, 10).map(u => u.user_login) };" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate=2026-01-01&endDate=2026-01-15" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users", title: "Inactive Developers" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users?startDate=2026-01-01&endDate=2026-01-15", 
+              title: "Developer Activity (Jan 1-15)",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "interactions", label: "Interactions", format: "number" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" }
+              ]
+            }
           }
         }
       }
@@ -566,7 +681,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
           config: {
             layout: "dashboard",
             headerStats: [{ title: "Post-Release Adoption", apiEndpoint: "/api/metrics/summary?startDate=2026-01-05", dataKey: "active_users_count" }],
-            slotMain: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate=2026-01-05", title: "Daily Active Users since Jan 5" }
+            slotMain: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate=2026-01-05", 
+              title: "Daily Active Users since Jan 5",
+              chartSeries: [{ key: "active_users", label: "Active Users", color: "#8b5cf6" }]
+            }
           }
         }
       }
@@ -597,7 +717,15 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate=2026-01-01", title: "Q1 Performance Trend" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate=2026-01-01", 
+              title: "Q1 Performance Trend",
+              chartSeries: [
+                { key: "suggestions", label: "Suggestions", color: "#94a3b8" },
+                { key: "acceptances", label: "Acceptances", color: "#10b981" }
+              ]
+            }
           }
         }
       }
@@ -612,7 +740,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={last_friday}&endDate={last_monday}&segment=QA", title: "Weekend QA Activity" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={last_friday}&endDate={last_monday}&segment=QA", 
+              title: "Weekend QA Activity",
+              chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
+            }
           }
         }
       }
@@ -628,7 +761,12 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
           config: {
             layout: "dashboard",
             headerStats: [{ title: "Total Impact", apiEndpoint: "/api/metrics/summary?userLogin=james_wilson", dataKey: "total_loc_added" }],
-            slotMain: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?userLogin=james_wilson", title: "James's YTD Growth" }
+            slotMain: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?userLogin=james_wilson", 
+              title: "James's YTD Growth",
+              chartSeries: [{ key: "loc_added", label: "LOC Added", color: "#10b981" }]
+            }
           }
         }
       }
@@ -643,22 +781,37 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/breakdown?by=ide", title: "Platform IDE Split" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/breakdown?by=ide&startDate={7_days_ago}&segment=Backend-Platform", 
+              title: "Platform IDE Split",
+              xAxisKey: "name",
+              chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
+            }
           }
         }
       }
     ]
   },
   {
-    user: "Who had the highest acceptance rate in the last 3 days using typescript?",
+    user: "Show acceptance rates for TypeScript users in the last 3 days.",
     tool_steps: [
-      { tool: "analyze_data_with_code", args: { endpoint: "/api/metrics/users?startDate={3_days_ago}", code: "const winner = data.filter(u => u.totals_by_language_model.some(m => m.language === 'typescript')).sort((a,b) => b.acceptance_rate - a.acceptance_rate)[0]; return winner ? { user: winner.user_login, acceptance_rate: winner.acceptance_rate, interactions: winner.interactions } : null;" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate={3_days_ago}&language=typescript" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users", title: "TS Quality Leader" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users?startDate={3_days_ago}&language=typescript", 
+              title: "TypeScript User Quality",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" },
+                { key: "interactions", label: "Interactions", format: "number" }
+              ]
+            }
           }
         }
       }
@@ -674,7 +827,15 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
           config: {
             layout: "split",
             leftChart: { component: "CompareStatCard", apiEndpoint: "/api/metrics/compare/summary?startDate=2026-01-01&endDate=2026-01-07&entityA={ \"label\": \"Brian\", \"userLogin\": \"brian_williams\" }&entityB={ \"label\": \"George\", \"userLogin\": \"george_thompson\" }&metricKey=acceptance_rate", title: "Early Jan Quality Gap" },
-            rightChart: { component: "SmartChart", apiEndpoint: "/api/metrics/compare/trends?startDate=2026-01-01&endDate=2026-01-07&queries=[{\"label\":\"Brian\",\"userLogin\":\"brian_williams\"},{\"label\":\"George\",\"userLogin\":\"george_thompson\"}]&metricKey=acceptance_rate", title: "Quality Over Time" }
+            rightChart: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/compare/trends?startDate=2026-01-01&endDate=2026-01-07&queries=[{\"label\":\"Brian\",\"userLogin\":\"brian_williams\"},{\"label\":\"George\",\"userLogin\":\"george_thompson\"}]&metricKey=acceptance_rate", 
+              title: "Quality Over Time",
+              chartSeries: [
+                { key: "Brian", label: "Brian", color: "#3b82f6" },
+                { key: "George", label: "George", color: "#10b981" }
+              ]
+            }
           }
         }
       }
@@ -683,13 +844,18 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Show me the trend of o1-preview adoption since Jan 10th.",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/trends?startDate={2026-01-10}&model=o1-preview" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/trends?startDate={query_date}&model=o1-preview" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartChart", apiEndpoint: "/api/metrics/trends?startDate={2026-01-10}&model=o1-preview", title: "o1-preview Adoption Trend" }
+            config: { 
+              component: "SmartChart", 
+              apiEndpoint: "/api/metrics/trends?startDate={query_date}&model=o1-preview", 
+              title: "o1-preview Adoption Trend",
+              chartSeries: [{ key: "interactions", label: "Interactions", color: "#8b5cf6" }]
+            }
           }
         }
       }
@@ -698,13 +864,22 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Rank users by interactions for the last 48 hours.",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate={2_days_ago}&sortKey=interactions&sortOrder=desc" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/users?startDate={2_days_ago}" } },
       {
         tool: "render_dashboard", 
         args: {
           config: {
             layout: "single",
-            config: { component: "SmartTable", apiEndpoint: "/api/metrics/users?startDate={2_days_ago}&sortKey=interactions&sortOrder=desc", title: "Activity Leaderboard (48h)" }
+            config: { 
+              component: "SmartTable", 
+              apiEndpoint: "/api/metrics/users?startDate={2_days_ago}", 
+              title: "Activity Leaderboard (48h)",
+              tableColumns: [
+                { key: "user_login", label: "User" },
+                { key: "interactions", label: "Interactions", format: "number" },
+                { key: "acceptance_rate", label: "Acceptance Rate", format: "percentage" }
+              ]
+            }
           }
         }
       }

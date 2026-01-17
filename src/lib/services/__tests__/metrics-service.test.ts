@@ -157,4 +157,125 @@ describe('MetricsService', () => {
       });
     });
   });
+
+  describe('getBreakdownComparison', () => {
+    it('should compute deltas between periods', async () => {
+      const breakdownSpy = vi.spyOn(MetricsService, 'getBreakdown');
+
+      breakdownSpy
+        .mockResolvedValueOnce([
+          { name: 'Team A', interactions: 120, suggestions: 0, acceptances: 0, loc_suggested_to_add: 0, loc_suggested_to_delete: 0, loc_added: 0, loc_deleted: 0, active_users_count: 1, interactions_per_user: 120, loc_added_per_user: 0, agent_usage_rate: 0, chat_usage_rate: 0, acceptance_rate: 0 },
+        ])
+        .mockResolvedValueOnce([
+          { name: 'Team A', interactions: 100, suggestions: 0, acceptances: 0, loc_suggested_to_add: 0, loc_suggested_to_delete: 0, loc_added: 0, loc_deleted: 0, active_users_count: 1, interactions_per_user: 100, loc_added_per_user: 0, agent_usage_rate: 0, chat_usage_rate: 0, acceptance_rate: 0 },
+        ]);
+
+      const comparison = await MetricsService.getBreakdownComparison('feature', 'interactions');
+
+      expect(comparison[0].delta).toBe(20);
+      expect(comparison[0].delta_pct).toBe(0.2);
+    });
+  });
+
+  describe('getBreakdownStability', () => {
+    it('should return stability metrics for a dimension', async () => {
+      const mockStability = [
+        { name: 'Team A', feature: 'Team A', metric: 'interactions', avg_value: 10, stddev_value: 2, coefficient_variation: 0.2, days: 5 },
+      ];
+
+      (UserMetric.aggregate as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(mockStability);
+
+      const stability = await MetricsService.getBreakdownStability('feature', 'interactions');
+
+      expect(stability[0].name).toBe('Team A');
+      expect(stability[0].coefficient_variation).toBe(0.2);
+    });
+  });
+
+  describe('getUserChange', () => {
+    it('should compute per-user deltas', async () => {
+      const usersSpy = vi.spyOn(MetricsService, 'getUsersList');
+
+      usersSpy
+        .mockResolvedValueOnce([
+          {
+            user_login: 'alice',
+            name: 'Alice',
+            interactions: 20,
+            suggestions: 0,
+            acceptances: 0,
+            loc_suggested_to_add: 0,
+            loc_suggested_to_delete: 0,
+            loc_added: 0,
+            loc_deleted: 0,
+            ide: 'vscode',
+            uses_agent: false,
+            uses_chat: true,
+            totals_by_feature: [],
+            totals_by_language_feature: [],
+            totals_by_model_feature: [],
+            totals_by_language_model: [],
+            totals_by_ide: [],
+            acceptance_rate: 0,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            user_login: 'alice',
+            name: 'Alice',
+            interactions: 10,
+            suggestions: 0,
+            acceptances: 0,
+            loc_suggested_to_add: 0,
+            loc_suggested_to_delete: 0,
+            loc_added: 0,
+            loc_deleted: 0,
+            ide: 'vscode',
+            uses_agent: false,
+            uses_chat: true,
+            totals_by_feature: [],
+            totals_by_language_feature: [],
+            totals_by_model_feature: [],
+            totals_by_language_model: [],
+            totals_by_ide: [],
+            acceptance_rate: 0,
+          },
+        ]);
+
+      const changes = await MetricsService.getUserChange('interactions');
+
+      expect(changes[0].delta).toBe(10);
+      expect(changes[0].delta_pct).toBe(1);
+    });
+  });
+
+  describe('getUsersFirstActive', () => {
+    it('should return users with their first active date', async () => {
+      const mockFirstActive = [{ user_login: 'bob', name: 'Bob', first_day: '2026-01-01' }];
+
+      (UserMetric.aggregate as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(mockFirstActive);
+
+      const firstActive = await MetricsService.getUsersFirstActive();
+
+      expect(firstActive[0].user_login).toBe('bob');
+    });
+  });
+
+  describe('getUsersUsageRates', () => {
+    it('should return usage rate summary', async () => {
+      const mockUsage = [{
+        total_users: 10,
+        agent_user_rate: 0.4,
+        chat_user_rate: 0.9,
+        both_user_rate: 0.3,
+      }];
+
+      (UserMetric.aggregate as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(mockUsage);
+
+      const usageRates = await MetricsService.getUsersUsageRates();
+
+      expect(usageRates.total_users).toBe(10);
+      expect(usageRates.agent_user_rate).toBe(0.4);
+    });
+  });
 });

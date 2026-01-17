@@ -44,10 +44,18 @@ import {
   SummaryResponse, 
   TrendResponse, 
   BreakdownResponse, 
-  UserListResponse 
+  UserListResponse,
+  BreakdownComparisonResponse,
+  BreakdownStabilityResponse,
+  UserChangeResponse,
+  UserFirstActiveResponse,
+  UserUsageRateResponse,
+  type BreakdownDimension,
+  type BreakdownMetricKey
 } from "@/lib/services/metrics-service";
 import { SnapshotService } from "@/lib/services/snapshot-service";
 import { AnalysisService } from "@/lib/services/analysis-service";
+import { resolveDatePlaceholders, startOfDayUTC } from "@/lib/utils/date-placeholders";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -57,6 +65,12 @@ export const maxDuration = 30;
  * This ensures we can extract searchParams and pathnames from AI-generated strings safely.
  */
 const PARSING_BASE_URL = "http://localhost";
+const DEFAULT_MODEL_ID = "gpt-4o";
+
+const getModelId = () => {
+  const envModel = process.env.OPENAI_MODEL_ID?.trim();
+  return envModel && envModel.length > 0 ? envModel : DEFAULT_MODEL_ID;
+};
 
 type SummaryMetricKey = "total_interactions" | "total_loc_added" | "acceptance_rate";
 type TrendMetricKey = "interactions" | "loc_added" | "acceptance_rate" | "acceptances" | "suggestions";
@@ -75,6 +89,11 @@ type MetricData =
   | TrendResponse[]
   | BreakdownResponse[]
   | UserListResponse[]
+  | BreakdownComparisonResponse[]
+  | BreakdownStabilityResponse[]
+  | UserChangeResponse[]
+  | UserFirstActiveResponse[]
+  | UserUsageRateResponse
   | CompareSummaryResponse
   | SeriesPoint[];
 type HeavyDataType = MetricData | Record<string, MetricData>;
@@ -145,18 +164,67 @@ function calculateDistributionStats(data: { interactions: number }[]) {
 async function fetchDataForEndpoint(endpoint: string) {
   if (!endpoint) return { data: [], summary: {} };
 
-  const url = new URL(endpoint, PARSING_BASE_URL);
-  const params = url.searchParams;
+  const baseDate = startOfDayUTC(new Date());
+  const { endpoint: resolvedEndpoint, resolvedTokens, unresolvedTokens } =
+    resolveDatePlaceholders(endpoint, baseDate);
 
-  const dateFilters = {
-    startDate: params.get("startDate") ? new Date(params.get("startDate")!) : undefined,
-    endDate: params.get("endDate") ? new Date(params.get("endDate")!) : undefined,
-  };
+  if (resolvedTokens.length > 0) {
+    console.log(
+      "🧭 [Server] Resolved date placeholders:",
+      JSON.stringify({ tokens: resolvedTokens, endpoint: resolvedEndpoint })
+    );
+  }
+
+  if (unresolvedTokens.length > 0) {
+    console.warn(
+      "⚠️ [Server] Unresolved placeholders in endpoint:",
+      JSON.stringify({ tokens: unresolvedTokens, endpoint: resolvedEndpoint })
+    );
+  }
+
+  const url = new URL(resolvedEndpoint, PARSING_BASE_URL);
+  const params = url.searchParams;
+  console.log({ endpoint, resolvedEndpoint });
+  const rawStartDate = params.get("startDate");
+  const rawEndDate = params.get("endDate");
+  const startDate = rawStartDate ? new Date(rawStartDate) : undefined;
+  const endDate = rawEndDate ? new Date(rawEndDate) : undefined;
+  const dateFilters = { startDate, endDate };
+  const hasPlaceholder = (value: string | null) => !!value && (value.includes("{") || value.includes("}"));
+  const isValidDate = (value?: Date) => (value ? !Number.isNaN(value.getTime()) : true);
+
+  if (rawStartDate || rawEndDate) {
+    console.log(
+      "🧪 [Server] Date params:",
+      JSON.stringify({ startDate: rawStartDate, endDate: rawEndDate })
+    );
+  }
+
+  if (hasPlaceholder(rawStartDate) || hasPlaceholder(rawEndDate)) {
+    console.warn(
+      "⚠️ [Server] Date placeholders detected in params:",
+      JSON.stringify({ startDate: rawStartDate, endDate: rawEndDate })
+    );
+  }
+
+  if (!isValidDate(startDate) || !isValidDate(endDate)) {
+    console.warn(
+      "⚠️ [Server] Invalid date parsing:",
+      JSON.stringify({
+        startDate: rawStartDate,
+        endDate: rawEndDate,
+        parsedStart: startDate?.toString(),
+        parsedEnd: endDate?.toString(),
+      })
+    );
+  }
 
   const filters = {
     ...dateFilters,
     segment: params.get("segment") || undefined,
     userLogin: params.get("userLogin") || undefined,
+    model: params.get("model") || undefined,
+    language: params.get("language") || undefined,
   };
 
   const path = url.pathname;
@@ -188,6 +256,7 @@ async function fetchDataForEndpoint(endpoint: string) {
 
   const trendMetricParam = params.get("metricKey");
   const summaryMetricParam = params.get("metricKey");
+  const breakdownMetricParam = params.get("metricKey");
   const trendMetricKey: TrendMetricKey = (
     trendMetricParam === "interactions" ||
     trendMetricParam === "loc_added" ||
@@ -200,6 +269,16 @@ async function fetchDataForEndpoint(endpoint: string) {
     summaryMetricParam === "total_loc_added" ||
     summaryMetricParam === "acceptance_rate"
   ) ? summaryMetricParam : "total_interactions";
+  const breakdownMetricKey: BreakdownMetricKey = (
+    breakdownMetricParam === "interactions" ||
+    breakdownMetricParam === "suggestions" ||
+    breakdownMetricParam === "acceptances" ||
+    breakdownMetricParam === "loc_suggested_to_add" ||
+    breakdownMetricParam === "loc_suggested_to_delete" ||
+    breakdownMetricParam === "loc_added" ||
+    breakdownMetricParam === "loc_deleted" ||
+    breakdownMetricParam === "acceptance_rate"
+  ) ? breakdownMetricParam : "interactions";
 
   if (path.includes("/compare/summary")) {
     const entityA = toCompareEntity(parseJsonParam(params.get("entityA")));
@@ -236,6 +315,54 @@ async function fetchDataForEndpoint(endpoint: string) {
       series_labels: entities.map((entity) => entity.label),
       data_points: seriesData.length,
     };
+  } else if (path.includes("/breakdown/compare")) {
+    const byParam = params.get("by") as BreakdownDimension | null;
+    const compareStart = params.get("compareStart");
+    const compareEnd = params.get("compareEnd");
+
+    if (byParam && compareStart && compareEnd) {
+      const compareFilters = {
+        ...filters,
+        startDate: new Date(compareStart),
+        endDate: new Date(compareEnd),
+      };
+      data = await MetricsService.getBreakdownComparison(byParam, breakdownMetricKey, filters, compareFilters);
+      summary = { metric: breakdownMetricKey, period_count: 2 };
+    } else {
+      data = [];
+      summary = { error: "Missing breakdown comparison parameters" };
+    }
+  } else if (path.includes("/breakdown/stability")) {
+    const byParam = params.get("by") as BreakdownDimension | null;
+    if (byParam) {
+      data = await MetricsService.getBreakdownStability(byParam, breakdownMetricKey, filters);
+      summary = { metric: breakdownMetricKey };
+    } else {
+      data = [];
+      summary = { error: "Missing breakdown stability parameters" };
+    }
+  } else if (path.includes("/users/change")) {
+    const compareStart = params.get("compareStart");
+    const compareEnd = params.get("compareEnd");
+    if (compareStart && compareEnd) {
+      const compareFilters = {
+        ...filters,
+        startDate: new Date(compareStart),
+        endDate: new Date(compareEnd),
+      };
+      data = await MetricsService.getUserChange(breakdownMetricKey, filters, compareFilters);
+      summary = { metric: breakdownMetricKey };
+    } else {
+      data = [];
+      summary = { error: "Missing user change parameters" };
+    }
+  } else if (path.includes("/users/first-active")) {
+    data = await MetricsService.getUsersFirstActive(filters);
+    summary = { total: Array.isArray(data) ? data.length : 0 };
+  } else if (path.includes("/users/usage-rate")) {
+    const usageRate = await MetricsService.getUsersUsageRates(filters);
+    data = usageRate;
+    summary = usageRate as unknown as Record<string, unknown>;
   } else if (path.includes("/summary")) {
     const res = await MetricsService.getSummary(filters);
     data = res; // Return object directly for KPIGrid compatibility
@@ -260,7 +387,7 @@ async function fetchDataForEndpoint(endpoint: string) {
       ...distStats
     };
   } else if (path.includes("/breakdown")) {
-    const by = params.get("by") as "model" | "ide" || "model";
+    const by = (params.get("by") as BreakdownDimension) || "model";
     const breakdown = await MetricsService.getBreakdown(by, filters);
     data = breakdown;
     const distStats = calculateDistributionStats(breakdown);
@@ -470,12 +597,14 @@ const handler = async (req: Request) => {
   const now = new Date();
   const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
   console.log("🔍 [Server] Date Context injected into prompt:", dateContext);
-  const systemPrompt = `${buildSystemPrompt()}\n\n${dateContext}`;
-
+  const systemPrompt = buildSystemPrompt(dateContext);
+  const modelId = getModelId();
+  console.log('MODEL ID', modelId)
   // Set session id and user id on active trace
   const inputText = messages[messages.length - 1]?.parts.find(
     (part) => part.type === "text"
   )?.text;
+  console.log(`[Request Handler] User message: ${inputText || "N/A"}`);
 
   // Add session and user context to the trace
   updateActiveObservation({
@@ -491,7 +620,7 @@ const handler = async (req: Request) => {
 
   // Use a type-safe approach to enable multi-step reasoning.
   const streamOptions = {
-    model: openai("gpt-4o"),
+    model: openai(modelId),
 
     messages: await convertToModelMessages(messages),
     system: systemPrompt,

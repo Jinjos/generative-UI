@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icons";
 import { ChatUIMessage } from "@/app/api/chat/route";
 import { useChatContext } from "@/hooks/use-chat-context";
@@ -29,17 +29,15 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const { setActiveDashboard } = useChatContext();
   const isLoading = status === "submitted" || status === "streaming";
+  const processedDashboardsRef = useRef<Set<string>>(new Set());
 
-  const handleShowDashboard = (output: unknown) => {
-    // New structure: { config, snapshotId, summary }
+  const handleShowDashboard = useCallback((output: unknown) => {
     if (typeof output === "object" && output !== null && "config" in output) {
       setActiveDashboard((output as { config: DashboardTool }).config);
     } else {
       setActiveDashboard(output as DashboardTool);
     }
-    // Keep chat open so user can read the explanation while viewing data
-    // setIsChatOpen(false); 
-  };
+  }, [setActiveDashboard]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +50,20 @@ export function ChatInterface({
       text: value, 
     }); 
   };
+
+  useEffect(() => {
+    messages.forEach((message) => {
+      message.parts?.forEach((part, index) => {
+        if (part.type === "tool-render_dashboard" && part.state === "output-available") {
+          const key = `${message.id}:${index}`;
+          if (!processedDashboardsRef.current.has(key)) {
+            processedDashboardsRef.current.add(key);
+            handleShowDashboard(part.output);
+          }
+        }
+      });
+    });
+  }, [handleShowDashboard, messages]);
 
   return (
     <div className={`flex flex-col h-full overflow-hidden ${embedded ? '' : 'rounded-xl bg-[var(--color-unit)] shadow-2xl border border-[color:var(--color-stroke)]'}`}>
