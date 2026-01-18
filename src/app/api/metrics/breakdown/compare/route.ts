@@ -5,14 +5,16 @@ import { parseFilters } from "../../summary/route";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const by = searchParams.get("by") as BreakdownDimension | null;
+    const allowed: BreakdownDimension[] = ["model", "ide", "feature", "language_model", "language_feature", "model_feature"];
+    const rawBy = searchParams.get("by");
+    const by = rawBy === "team" ? "feature" : rawBy;
     const metricKey = (searchParams.get("metricKey") || "interactions") as BreakdownMetricKey;
 
     const compareStart = searchParams.get("compareStart");
     const compareEnd = searchParams.get("compareEnd");
 
-    if (!by) {
-      return NextResponse.json({ error: "Missing 'by' parameter" }, { status: 400 });
+    if (!by || !allowed.includes(by as BreakdownDimension)) {
+      return NextResponse.json({ error: "Missing or invalid 'by' parameter", allowed }, { status: 400 });
     }
 
     if (!compareStart || !compareEnd) {
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
       endDate: new Date(compareEnd),
     };
 
-    const comparison = await MetricsService.getBreakdownComparison(by, metricKey, currentFilters, compareFilters);
+    const comparison = await MetricsService.getBreakdownComparison(by as BreakdownDimension, metricKey, currentFilters, compareFilters);
     return NextResponse.json(comparison);
   } catch (error) {
     console.error("API Error (Breakdown Compare):", error);

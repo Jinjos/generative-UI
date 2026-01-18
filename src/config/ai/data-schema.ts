@@ -5,6 +5,20 @@ export interface DataSchemaField {
 }
 
 export const DATA_SCHEMA: Record<string, Record<string, DataSchemaField>> = {
+  "API Constraints": {
+    "breakdown_dimensions": {
+      "type": "string",
+      "description": "Valid breakdown by values: feature, ide, model, language_model, language_feature, model_feature. Never use team."
+    },
+    "compare_summary_entities": {
+      "type": "object",
+      "description": "Compare summary requires entityA/entityB with label and either segment or userLogin. Do not include model or language in entityA/entityB."
+    },
+    "default_timeframe": {
+      "type": "string",
+      "description": "If the user does not specify a timeframe, default to last 30 days using startDate={30_days_ago} and endDate={today} (unless the user explicitly asks for all-time/lifetime)."
+    }
+  },
   "API Output Fields": {
     "date": {
       "type": "string (YYYY-MM-DD)",

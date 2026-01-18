@@ -16,6 +16,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: {
           endpoint: "/api/metrics/breakdown/compare?by=feature&metricKey=interactions&startDate={7_days_ago}&endDate={today}&compareStart={14_days_ago}&compareEnd={7_days_ago}",
         },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown/compare?by=feature&metricKey=interactions&startDate={7_days_ago}&endDate={today}&compareStart={14_days_ago}&compareEnd={7_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.delta || 0) > (best?.delta || 0) ? d : best, null); return { team: top?.name || top?.feature || null, delta: top?.delta || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -45,6 +53,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/trends?startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/trends?startDate={30_days_ago}",
+          code: "const latest = data[data.length - 1]?.active_users ?? 0; return { days: data.length, latest };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -102,6 +118,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/users/usage-rate?startDate={month_start}&endDate={today}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/users/usage-rate?startDate={month_start}&endDate={today}",
+          code: "const row = data[0] || {}; return { both_user_rate: row.both_user_rate ?? 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -227,6 +251,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/users/first-active?startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/users/first-active?startDate={30_days_ago}",
+          code: "const users = data.slice(0, 10).map(d => ({ user: d.user_login, first_day: d.first_day })); return { users };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -255,6 +287,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/trends?startDate={30_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/trends?startDate={30_days_ago}",
+          code: "const first = data[0]?.acceptance_rate ?? 0; const last = data[data.length - 1]?.acceptance_rate ?? 0; return { first, last, delta: last - first };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -349,6 +388,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=model&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model&startDate={30_days_ago}",
+          code: "const ranked = [...data].sort((a, b) => (b.acceptance_rate || 0) - (a.acceptance_rate || 0)).map(d => ({ model: d.model || d.name, acceptance_rate: d.acceptance_rate || 0 })); return { ranked };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -412,6 +458,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown/stability?by=feature&metricKey=acceptance_rate&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown/stability?by=feature&metricKey=acceptance_rate&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.coefficient_variation ?? 0) > (best?.coefficient_variation ?? 0) ? d : best, null); return { team: top?.name || top?.feature || null, coefficient_variation: top?.coefficient_variation || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -472,6 +525,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=model_feature&startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model_feature&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.acceptance_rate || 0) > (best?.acceptance_rate || 0) ? d : best, null); return { pair: top?.name || null, acceptance_rate: top?.acceptance_rate || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -502,6 +563,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/summary?startDate={month_start}&endDate={today}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/summary?startDate={month_start}&endDate={today}",
+          code: "const totals = data.reduce((acc, d) => { acc.added += d.loc_added || 0; acc.deleted += d.loc_deleted || 0; return acc; }, { added: 0, deleted: 0 }); return totals;"
+        }
       },
       {
         tool: "render_dashboard",
@@ -530,6 +599,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => { const value = d.loc_added_per_user ?? ((d.loc_added || 0) / (d.active_users_count || 1)); return value > (best?.value ?? -Infinity) ? { name: d.name || d.feature, value } : best; }, null); return { team: top?.name || null, loc_added_per_user: top?.value || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -555,6 +631,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/trends?startDate={56_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/trends?startDate={56_days_ago}",
+          code: "const first = data[0]?.loc_added ?? 0; const last = data[data.length - 1]?.loc_added ?? 0; return { first, last, delta: last - first };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -752,6 +835,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: {
           endpoint: "/api/metrics/compare/summary?entityA={ \"label\": \"Backend-Platform\", \"segment\": \"Backend-Platform\" }&entityB={ \"label\": \"QA\", \"segment\": \"QA\" }&metricKey=acceptance_rate",
         },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/compare/summary?entityA={ \"label\": \"Backend-Platform\", \"segment\": \"Backend-Platform\" }&entityB={ \"label\": \"QA\", \"segment\": \"QA\" }&metricKey=acceptance_rate",
+          code: "const find = (label) => data.find(d => String(d.name || d.feature || '').toLowerCase().includes(label.toLowerCase())); const backend = find('Backend-Platform'); const qa = find('QA'); const backendRate = backend?.acceptance_rate ?? 0; const qaRate = qa?.acceptance_rate ?? 0; const winner = backendRate === qaRate ? 'tie' : (backendRate > qaRate ? (backend?.name || backend?.feature) : (qa?.name || qa?.feature)); return { backend_rate: backendRate, qa_rate: qaRate, winner };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -785,6 +876,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); return { team: top?.name || top?.feature || null, interactions: top?.interactions || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -810,6 +908,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+          code: "const ranked = [...data].sort((a, b) => (b.loc_deleted || 0) - (a.loc_deleted || 0)).slice(0, 10).map(d => ({ name: d.name || d.feature, loc_deleted: d.loc_deleted || 0 })); return { ranked };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -873,6 +979,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/compare/trends?queries=[{\"label\":\"Backend-Core\",\"segment\":\"Backend-Core\"},{\"label\":\"QA\",\"segment\":\"QA\"}]&metricKey=interactions&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/compare/trends?queries=[{\"label\":\"Backend-Core\",\"segment\":\"Backend-Core\"},{\"label\":\"QA\",\"segment\":\"QA\"}]&metricKey=interactions&startDate={30_days_ago}",
+          code: "const totals = data.reduce((acc, row) => { Object.keys(row).forEach((key) => { if (key !== 'date') acc[key] = (acc[key] || 0) + (Number(row[key]) || 0); }); return acc; }, {}); return { totals };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -897,6 +1010,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown/stability?by=feature&metricKey=interactions&startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown/stability?by=feature&metricKey=interactions&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.coefficient_variation ?? Infinity) < (best?.coefficient_variation ?? Infinity) ? d : best, null); return { most_consistent: top ? { name: top.name || top.feature, coefficient_variation: top.coefficient_variation } : null };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -924,6 +1045,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={month_start}&endDate={today}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={month_start}&endDate={today}",
+          code: "const top = data.reduce((best, d) => (d.loc_added || 0) > (best?.loc_added || 0) ? d : best, null); return { team: top?.name || top?.feature || null, loc_added: top?.loc_added || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -950,6 +1079,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.agent_usage_rate || 0) > (best?.agent_usage_rate || 0) ? d : best, null); return { team: top?.name || top?.feature || null, agent_usage_rate: top?.agent_usage_rate || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -979,6 +1116,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=ide&segment=Backend-Platform&startDate={30_days_ago}" },
+
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=ide&segment=Backend-Platform&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); return { ide: top?.ide || top?.name || null, interactions: top?.interactions || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -1005,6 +1150,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=language_model&startDate={30_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=language_model&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); return { top_pair: top?.name || null, interactions: top?.interactions || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -1034,6 +1186,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=language_model&language=typescript&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=language_model&language=typescript&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.acceptance_rate || 0) > (best?.acceptance_rate || 0) ? d : best, null); return { model: top?.model || top?.name || null, acceptance_rate: top?.acceptance_rate || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -1059,6 +1218,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=model&startDate={last_month_start}&endDate={last_month_end}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model&startDate={last_month_start}&endDate={last_month_end}",
+          code: "const total = data.reduce((s, d) => s + (d.interactions || 0), 0); const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); return { total, top_model: top?.model || top?.name || null, top_interactions: top?.interactions || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -1087,6 +1253,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=model&segment=Backend-Platform&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model&segment=Backend-Platform&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); return { model: top?.model || top?.name || null, interactions: top?.interactions || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -1111,6 +1284,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=language_model&startDate={30_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=language_model&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.loc_added || 0) > (best?.loc_added || 0) ? d : best, null); return { pair: top?.name || null, loc_added: top?.loc_added || 0 };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -1140,6 +1320,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         args: { endpoint: "/api/metrics/breakdown?by=model&startDate={30_days_ago}" },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model&startDate={30_days_ago}",
+          code: "const total = data.reduce((s, d) => s + (d.interactions || 0), 0); const top = data.reduce((best, d) => (d.interactions || 0) > (best?.interactions || 0) ? d : best, null); const share = total ? (top?.interactions || 0) / total : 0; return { top_model: top?.model || top?.name || null, share };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -1165,6 +1352,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/trends?startDate={30_days_ago}&model=o1-preview" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/trends?startDate={30_days_ago}&model=o1-preview",
+          code: "const first = data[0]?.interactions ?? 0; const last = data[data.length - 1]?.interactions ?? 0; return { first, last, delta: last - first };"
+        }
       },
       {
         tool: "render_dashboard",
@@ -1364,6 +1558,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
         },
       },
       {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown/compare?by=feature&metricKey=interactions&startDate={7_days_ago}&endDate={today}&compareStart={14_days_ago}&compareEnd={7_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.delta ?? Infinity) < (best?.delta ?? Infinity) ? d : best, null); return { team: top?.name || top?.feature || null, delta: top?.delta || 0 };"
+        }
+      },
+      {
         tool: "render_dashboard",
         args: {
           config: {
@@ -1423,6 +1624,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/breakdown?by=model_feature&startDate={30_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=model_feature&startDate={30_days_ago}",
+          code: "const top = data.reduce((best, d) => (d.acceptance_rate ?? Infinity) < (best?.acceptance_rate ?? Infinity) ? d : best, null); return { pair: top?.name || null, acceptance_rate: top?.acceptance_rate || 0 };"
+        }
       },
       {
         tool: "render_dashboard",

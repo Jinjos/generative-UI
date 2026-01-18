@@ -14,6 +14,8 @@ export interface CompareEntityConfig {
   label: string;
   segment?: string;
   userLogin?: string;
+  model?: string;
+  language?: string;
 }
 
 export interface SummaryResponse {
@@ -191,8 +193,10 @@ export class MetricsService {
       entities.map(async (entity) => {
         const query = this.buildMatchQuery({
           ...filters,
-          segment: entity.segment,
-          userLogin: entity.userLogin,
+          ...(entity.segment ? { segment: entity.segment } : {}),
+          ...(entity.userLogin ? { userLogin: entity.userLogin } : {}),
+          ...(entity.model ? { model: entity.model } : {}),
+          ...(entity.language ? { language: entity.language } : {}),
         });
 
         let data;
@@ -263,8 +267,20 @@ export class MetricsService {
     metricKey: "total_interactions" | "total_loc_added" | "acceptance_rate",
     filters: Omit<MetricsFilter, "segment" | "userLogin"> = {}
   ) {
-    const summaryA = await this.getSummary({ ...filters, segment: entityA.segment, userLogin: entityA.userLogin });
-    const summaryB = await this.getSummary({ ...filters, segment: entityB.segment, userLogin: entityB.userLogin });
+    const summaryA = await this.getSummary({
+      ...filters,
+      ...(entityA.segment ? { segment: entityA.segment } : {}),
+      ...(entityA.userLogin ? { userLogin: entityA.userLogin } : {}),
+      ...(entityA.model ? { model: entityA.model } : {}),
+      ...(entityA.language ? { language: entityA.language } : {}),
+    });
+    const summaryB = await this.getSummary({
+      ...filters,
+      ...(entityB.segment ? { segment: entityB.segment } : {}),
+      ...(entityB.userLogin ? { userLogin: entityB.userLogin } : {}),
+      ...(entityB.model ? { model: entityB.model } : {}),
+      ...(entityB.language ? { language: entityB.language } : {}),
+    });
 
     const valA = summaryA[metricKey] as number || 0;
     const valB = summaryB[metricKey] as number || 0;

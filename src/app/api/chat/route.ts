@@ -82,6 +82,15 @@ interface CompareSummaryResponse {
   entityB: { label: string; value: number; isHigher: boolean };
 }
 
+const ALLOWED_BREAKDOWN_DIMENSIONS: BreakdownDimension[] = [
+  "model",
+  "ide",
+  "feature",
+  "language_model",
+  "language_feature",
+  "model_feature",
+];
+
 type SeriesPoint = Record<string, number | string>;
 type MetricData =
   | SummaryResponse
@@ -247,11 +256,31 @@ async function fetchDataForEndpoint(endpoint: string) {
     if (!label) return null;
     const segment = typeof obj.segment === "string" ? obj.segment : undefined;
     const userLogin = typeof obj.userLogin === "string" ? obj.userLogin : undefined;
+    const model = typeof obj.model === "string" ? obj.model : undefined;
+    const language = typeof obj.language === "string" ? obj.language : undefined;
     return {
       label,
       ...(segment ? { segment } : {}),
       ...(userLogin ? { userLogin } : {}),
+      ...(model ? { model } : {}),
+      ...(language ? { language } : {}),
     };
+  };
+
+  const breakdownWarnings: string[] = [];
+  const normalizeBreakdownDimension = (value: string | null, allowDefault: boolean) => {
+    if (!value) {
+      return allowDefault ? "model" : null;
+    }
+    if (value === "team") {
+      breakdownWarnings.push("by=team is invalid; used by=feature instead.");
+      return "feature";
+    }
+    if (ALLOWED_BREAKDOWN_DIMENSIONS.includes(value as BreakdownDimension)) {
+      return value as BreakdownDimension;
+    }
+    breakdownWarnings.push(`Invalid breakdown dimension '${value}'.`);
+    return null;
   };
 
   const trendMetricParam = params.get("metricKey");
@@ -295,7 +324,10 @@ async function fetchDataForEndpoint(endpoint: string) {
         entityA: { label: entityA?.label || "Entity A", value: 0, isHigher: false },
         entityB: { label: entityB?.label || "Entity B", value: 0, isHigher: false },
       };
-      summary = data as CompareSummaryResponse as unknown as Record<string, unknown>;
+      summary = {
+        ...(data as CompareSummaryResponse as unknown as Record<string, unknown>),
+        error: "Invalid compare entities. Provide label and either segment or userLogin.",
+      };
     }
   } else if (path.includes("/compare/trends")) {
     const parsedQueries = parseJsonParam(params.get("queries"));
@@ -316,7 +348,7 @@ async function fetchDataForEndpoint(endpoint: string) {
       data_points: seriesData.length,
     };
   } else if (path.includes("/breakdown/compare")) {
-    const byParam = params.get("by") as BreakdownDimension | null;
+    const byParam = normalizeBreakdownDimension(params.get("by"), false);
     const compareStart = params.get("compareStart");
     const compareEnd = params.get("compareEnd");
 
@@ -328,18 +360,28 @@ async function fetchDataForEndpoint(endpoint: string) {
       };
       data = await MetricsService.getBreakdownComparison(byParam, breakdownMetricKey, filters, compareFilters);
       summary = { metric: breakdownMetricKey, period_count: 2 };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
     } else {
       data = [];
-      summary = { error: "Missing breakdown comparison parameters" };
+      summary = {
+        error: byParam ? "Missing breakdown comparison parameters" : "Invalid breakdown dimension",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+      };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
     }
   } else if (path.includes("/breakdown/stability")) {
-    const byParam = params.get("by") as BreakdownDimension | null;
+    const byParam = normalizeBreakdownDimension(params.get("by"), false);
     if (byParam) {
       data = await MetricsService.getBreakdownStability(byParam, breakdownMetricKey, filters);
       summary = { metric: breakdownMetricKey };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
     } else {
       data = [];
-      summary = { error: "Missing breakdown stability parameters" };
+      summary = {
+        error: "Missing or invalid breakdown stability parameters",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+      };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
     }
   } else if (path.includes("/users/change")) {
     const compareStart = params.get("compareStart");
@@ -387,16 +429,26 @@ async function fetchDataForEndpoint(endpoint: string) {
       ...distStats
     };
   } else if (path.includes("/breakdown")) {
-    const by = (params.get("by") as BreakdownDimension) || "model";
-    const breakdown = await MetricsService.getBreakdown(by, filters);
-    data = breakdown;
-    const distStats = calculateDistributionStats(breakdown);
-    summary = { 
-      top_category: breakdown[0]?.name, 
-      top_category_value: breakdown[0]?.interactions,
-      top_10_list: breakdown.slice(0, 10).map(b => ({ name: b.name, value: b.interactions })),
-      ...distStats
-    };
+    const by = normalizeBreakdownDimension(params.get("by"), true);
+    if (!by) {
+      data = [];
+      summary = {
+        error: "Invalid breakdown dimension",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+      };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
+    } else {
+      const breakdown = await MetricsService.getBreakdown(by, filters);
+      data = breakdown;
+      const distStats = calculateDistributionStats(breakdown);
+      summary = { 
+        top_category: breakdown[0]?.name, 
+        top_category_value: breakdown[0]?.interactions,
+        top_10_list: breakdown.slice(0, 10).map(b => ({ name: b.name, value: b.interactions })),
+        ...distStats
+      };
+      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
+    }
   }
 
   return { data, summary };

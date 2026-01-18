@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { FEW_SHOT_EXAMPLES, FewShotExample } from "../src/config/ai/few-shot-examples";
-import { FEW_SHOT_EXAMPLES_2 } from "../src/config/ai/fewshots-examples-2";
+// import { FEW_SHOT_EXAMPLES_2 } from "../src/config/ai/fewshots-examples-2";
 import { DATA_SCHEMA, DataSchemaField } from "../src/config/ai/data-schema";
 
 /**
@@ -40,17 +40,19 @@ const TRAINING_SYSTEM_PROMPT = `You are the GenUI Orchestrator.
 3. Use strict metric names from the dictionary below.
 4. Use analyze_data_with_code only for calculations that require raw data.
 5. End with render_dashboard and an optional short user-facing summary.
-6. Prefer replacing date placeholders with YYYY-MM-DD; placeholders may be left for server-side resolution.
-7. For comparisons, use /api/metrics/compare/summary, /api/metrics/compare/trends, or /api/metrics/breakdown/compare.
-8. For model/language comparisons, use /api/metrics/breakdown?by=language_model with filters.
-9. Compare summary requires entityA/entityB with label and either segment or userLogin (no model/language in entityA/entityB).
-10. Do not use by=team or segment=all.
+6. Split layout must include at least one SmartChart or SmartTable. Do not use KPIGrid on both sides.
+7. If the user does not specify a timeframe, default to last 30 days (startDate={30_days_ago}&endDate={today}) unless they explicitly ask for all-time/lifetime.
+8. When dateContext is available, replace date placeholders with YYYY-MM-DD values. Do not leave placeholders in endpoints.
+9. For comparisons, use /api/metrics/compare/summary, /api/metrics/compare/trends, or /api/metrics/breakdown/compare.
+10. For model/language comparisons, use /api/metrics/breakdown?by=language_model with filters.
+11. Compare summary requires entityA/entityB with label and either segment or userLogin (no model/language in entityA/entityB).
+12. Do not use by=team or segment=all.
 
 ## Data Dictionary
 ${buildSchemaText()}
 `;
 
-const ALL_EXAMPLES: FewShotExample[] = [...FEW_SHOT_EXAMPLES, ...FEW_SHOT_EXAMPLES_2];
+const ALL_EXAMPLES: FewShotExample[] = [...FEW_SHOT_EXAMPLES];
 
 console.log(`Preparing training data from ${ALL_EXAMPLES.length} examples...`);
 
