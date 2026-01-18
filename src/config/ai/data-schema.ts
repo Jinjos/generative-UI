@@ -5,6 +5,132 @@ export interface DataSchemaField {
 }
 
 export const DATA_SCHEMA: Record<string, Record<string, DataSchemaField>> = {
+  "API Output Fields": {
+    "date": {
+      "type": "string (YYYY-MM-DD)",
+      "description": "Time-series date key returned by /api/metrics/trends."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display label for breakdown rows (e.g., team, model, feature)."
+    },
+    "feature": {
+      "type": "string",
+      "description": "Breakdown feature/team identifier (often prefixed with 'section_')."
+    },
+    "model": {
+      "type": "string",
+      "description": "AI model identifier used in breakdown outputs."
+    },
+    "language": {
+      "type": "string",
+      "description": "Programming language used in breakdown outputs."
+    },
+    "ide": {
+      "type": "string",
+      "description": "IDE/editor identifier used in breakdown outputs."
+    },
+    "interactions": {
+      "type": "number",
+      "description": "Aggregated interaction count in API responses."
+    },
+    "suggestions": {
+      "type": "number",
+      "description": "Aggregated suggestions count in API responses."
+    },
+    "acceptances": {
+      "type": "number",
+      "description": "Aggregated acceptances count in API responses."
+    },
+    "loc_added": {
+      "type": "number",
+      "description": "Aggregated LOC added in API responses."
+    },
+    "loc_deleted": {
+      "type": "number",
+      "description": "Aggregated LOC deleted in API responses."
+    },
+    "loc_suggested_to_add": {
+      "type": "number",
+      "description": "Aggregated suggested LOC added in API responses."
+    },
+    "loc_suggested_to_delete": {
+      "type": "number",
+      "description": "Aggregated suggested LOC deleted in API responses."
+    },
+    "acceptance_rate": {
+      "type": "number (ratio 0-1)",
+      "description": "Aggregated acceptance rate in API responses."
+    },
+    "active_users_count": {
+      "type": "number",
+      "description": "Unique active users count in summary/breakdown responses."
+    },
+    "interactions_per_user": {
+      "type": "number",
+      "description": "Average interactions per user in breakdown responses."
+    },
+    "loc_added_per_user": {
+      "type": "number",
+      "description": "Average LOC added per user in breakdown responses."
+    },
+    "agent_usage_rate": {
+      "type": "number (ratio 0-1)",
+      "description": "Fraction of users using agent capability."
+    },
+    "chat_usage_rate": {
+      "type": "number (ratio 0-1)",
+      "description": "Fraction of users using chat capability."
+    },
+    "metric": {
+      "type": "string",
+      "description": "Metric key returned by compare or stability endpoints."
+    },
+    "gap": {
+      "type": "number",
+      "description": "Percentage gap for compare summary endpoints."
+    },
+    "entityA": {
+      "type": "object",
+      "description": "Compare summary entity object: { label, value, isHigher }."
+    },
+    "entityB": {
+      "type": "object",
+      "description": "Compare summary entity object: { label, value, isHigher }."
+    },
+    "current_value": {
+      "type": "number",
+      "description": "Current period metric value (compare endpoints)."
+    },
+    "previous_value": {
+      "type": "number",
+      "description": "Previous period metric value (compare endpoints)."
+    },
+    "delta": {
+      "type": "number",
+      "description": "Current minus previous value (compare endpoints)."
+    },
+    "delta_pct": {
+      "type": "number (ratio)",
+      "description": "Delta percentage in compare endpoints."
+    },
+    "avg_value": {
+      "type": "number",
+      "description": "Average daily value in stability endpoints."
+    },
+    "stddev_value": {
+      "type": "number",
+      "description": "Standard deviation in stability endpoints."
+    },
+    "coefficient_variation": {
+      "type": "number",
+      "description": "Stddev / average in stability endpoints."
+    },
+    "days": {
+      "type": "number",
+      "description": "Number of days used in stability endpoints."
+    }
+  },
   "User Identity": {
     "user_id": {
       "type": "number",

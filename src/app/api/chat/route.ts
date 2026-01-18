@@ -185,8 +185,8 @@ async function fetchDataForEndpoint(endpoint: string) {
   const url = new URL(resolvedEndpoint, PARSING_BASE_URL);
   const params = url.searchParams;
   console.log({ endpoint, resolvedEndpoint });
-  const rawStartDate = params.get("startDate");
-  const rawEndDate = params.get("endDate");
+  const rawStartDate = params.get("startDate") ?? params.get("start_date");
+  const rawEndDate = params.get("endDate") ?? params.get("end_date");
   const startDate = rawStartDate ? new Date(rawStartDate) : undefined;
   const endDate = rawEndDate ? new Date(rawEndDate) : undefined;
   const dateFilters = { startDate, endDate };

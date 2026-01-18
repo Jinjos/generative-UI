@@ -249,7 +249,14 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     user: "Compare gpt-4o vs. claude-3-5-sonnet for TypeScript files. Which model writes better code?",
     tool_steps: [
-      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=language_model&language=typescript" } },
+      { tool: "get_metrics_summary", args: { endpoint: "/api/metrics/breakdown?by=language_model&language=typescript&startDate={30_days_ago}" } },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=language_model&language=typescript&startDate={30_days_ago}",
+          code: "const pick = (name) => data.find(d => d.model === name) || {}; const gpt = pick('gpt-4o'); const claude = pick('claude-3-5-sonnet'); const gptRate = gpt.acceptance_rate || 0; const claudeRate = claude.acceptance_rate || 0; const winner = gptRate === claudeRate ? 'tie' : (gptRate > claudeRate ? 'gpt-4o' : 'claude-3-5-sonnet'); return { winner, gpt_4o_rate: gptRate, claude_rate: claudeRate };"
+        }
+      },
       {
         tool: "render_dashboard", 
         args: { 
@@ -257,7 +264,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable",
-              apiEndpoint: "/api/metrics/breakdown?by=language_model&language=typescript",
+              apiEndpoint: "/api/metrics/breakdown?by=language_model&language=typescript&startDate={30_days_ago}",
               title: "Model Quality (TypeScript)",
               tableColumns: [
                 { key: "model", label: "Model" },

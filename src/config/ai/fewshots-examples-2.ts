@@ -374,7 +374,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
     tool_steps: [
       {
         tool: "get_metrics_summary",
-        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
+        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
+          code: "const top = data.map(d => ({ team: d.name, rate: d.acceptance_rate || 0 })).sort((a,b) => b.rate - a.rate).slice(0,5); return { top_teams: top };",
+        },
       },
       {
         tool: "render_dashboard",
@@ -383,7 +390,7 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable",
-              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
               title: "Team Suggestion Efficiency",
               tableColumns: [
                 { key: "name", label: "Team" },
@@ -672,12 +679,12 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
     tool_steps: [
       {
         tool: "get_metrics_summary",
-        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
+        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}" },
       },
       {
         tool: "analyze_data_with_code",
         args: {
-          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
           code: "const flagged = data.filter(d => (d.suggestions || 0) > 100 && (d.loc_added || 0) < 50).slice(0,5).map(d => ({ team: d.name, suggestions: d.suggestions, loc_added: d.loc_added })); return { teams: flagged };",
         },
       },
@@ -688,7 +695,7 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable",
-              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
               title: "Suggestions vs LOC Added",
               tableColumns: [
                 { key: "name", label: "Team" },
@@ -828,7 +835,14 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
     tool_steps: [
       {
         tool: "get_metrics_summary",
-        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}" },
+        args: { endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
+          code: "const scored = data.map(d => ({ team: d.name, gap: Math.abs((d.suggestions || 0) - (d.acceptances || 0)) })).sort((a,b) => a.gap - b.gap); return { most_balanced: scored[0] || null };",
+        },
       },
       {
         tool: "render_dashboard",
@@ -837,7 +851,7 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
             layout: "single",
             config: {
               component: "SmartTable",
-              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}",
+              apiEndpoint: "/api/metrics/breakdown?by=feature&startDate={30_days_ago}&endDate={today}",
               title: "Suggestion Balance by Team",
               tableColumns: [
                 { key: "name", label: "Team" },
@@ -1176,6 +1190,13 @@ export const FEW_SHOT_EXAMPLES_2: FewShotExample[] = [
       {
         tool: "get_metrics_summary",
         args: { endpoint: "/api/metrics/users/change?metricKey=interactions&startDate={30_days_ago}&endDate={today}&compareStart={60_days_ago}&compareEnd={30_days_ago}" },
+      },
+      {
+        tool: "analyze_data_with_code",
+        args: {
+          endpoint: "/api/metrics/users/change?metricKey=interactions&startDate={30_days_ago}&endDate={today}&compareStart={60_days_ago}&compareEnd={30_days_ago}",
+          code: "const declining = data.filter(u => (u.delta || 0) < 0).sort((a,b) => a.delta - b.delta).slice(0,10).map(u => ({ user: u.user_login, delta: u.delta, delta_pct: u.delta_pct })); return { declining_users: declining };",
+        },
       },
       {
         tool: "render_dashboard",
