@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MetricsService, MetricsFilter } from "@/lib/services/metrics-service";
+import { MetricsService } from "@/lib/services/metrics-service";
+import type { MetricsFilter } from "@/lib/types/metrics";
 
 export function parseFilters(searchParams: URLSearchParams): MetricsFilter {
   const startDate = searchParams.get("startDate");

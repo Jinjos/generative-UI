@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MetricsService, type SummaryResponse } from '../metrics-service';
+import { MetricsService } from '../metrics-service';
+import type { SummaryResponse } from '../../types/metrics';
 import { UserMetric } from '../../db/models';
 
 // Mock the UserMetric model

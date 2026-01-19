@@ -48,8 +48,16 @@ export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
   // Fallback to searching for a 'summary' object if no specific path logic is added
   const sourceData = (data.summary || data) as Record<string, unknown>;
 
+  // Calculate gridCols based on definitions.length
+  const kpiCount = definitions.length;
+  const gridCols = 
+    kpiCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4' :
+    kpiCount === 3 ? 'grid-cols-1 md:grid-cols-3' :
+    kpiCount === 2 ? 'grid-cols-1 md:grid-cols-2' : 
+    'grid-cols-1';
+
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+    <div className={`grid gap-6 ${gridCols}`}>
       {definitions.map((def) => {
         const rawValue = (() => {
           let value = getNestedValue(sourceData, def.key);

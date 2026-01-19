@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MetricsService, type BreakdownDimension, type BreakdownMetricKey } from "@/lib/services/metrics-service";
+import { MetricsService } from "@/lib/services/metrics-service";
+import type { BreakdownDimension, BreakdownMetricKey } from "@/lib/types/metrics";
 import { parseFilters } from "../../summary/route";
 
 export async function GET(req: NextRequest) {

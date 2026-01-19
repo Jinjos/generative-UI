@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MetricsService, CompareEntityConfig } from "@/lib/services/metrics-service";
+import { MetricsService } from "@/lib/services/metrics-service";
+import type { CompareEntityConfig } from "@/lib/types/metrics";
 import { parseFilters } from "../../summary/route";
 
 export async function GET(req: NextRequest) {

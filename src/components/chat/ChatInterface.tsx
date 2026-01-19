@@ -88,12 +88,10 @@ export function ChatInterface({
           </div>
         ) : (
           messages.map((message) => {
-            console.log(`[ChatDebug] Message ID: ${message.id}, Role: ${message.role}, Parts:`, message.parts);
             return (
               <div key={message.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col gap-2">
                 
                 {message.parts?.map((part, index) => {
-                  console.log(`[ChatDebug] Part ${index}: type=${part.type}`);
                   if (part.type === 'text' && part.text.trim()) {
                     return (
                       <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>

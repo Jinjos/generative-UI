@@ -107,13 +107,10 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
   let totalCount = 0;
 
   if (data) {
-    console.log('DATA:', data)
     if (Array.isArray(data)) {
-      console.log(`[SmartTable] Received Flat Array: ${data.length} items`);
       rows = data; // Legacy/Flat array
       totalCount = data.length;
     } else {
-      console.log(`[SmartTable] Received Envelope:`, data.pagination);
       // Prioritize 'data' from envelope, then fallbacks
       rows = (data.data || data.items || data.trends || []) as Record<string, unknown>[];
       totalCount = data.pagination?.total || rows.length;

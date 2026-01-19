@@ -40,6 +40,8 @@ import { trace } from "@opentelemetry/api";
 import { langfuseSpanProcessor } from "@/instrumentation";
 import { 
   MetricsService, 
+} from "@/lib/services/metrics-service";
+import type {
   CompareEntityConfig,
   SummaryResponse, 
   TrendResponse, 
@@ -50,9 +52,9 @@ import {
   UserChangeResponse,
   UserFirstActiveResponse,
   UserUsageRateResponse,
-  type BreakdownDimension,
-  type BreakdownMetricKey
-} from "@/lib/services/metrics-service";
+  BreakdownDimension,
+  BreakdownMetricKey
+} from "@/lib/types/metrics";
 import { SnapshotService } from "@/lib/services/snapshot-service";
 import { AnalysisService } from "@/lib/services/analysis-service";
 import { resolveDatePlaceholders, startOfDayUTC } from "@/lib/utils/date-placeholders";
@@ -170,7 +172,245 @@ function calculateDistributionStats(data: { interactions: number }[]) {
   };
 }
 
-async function fetchDataForEndpoint(endpoint: string) {
+// --- Helper Functions for Data Fetching ---
+
+const parseJsonParam = (value: string | null): unknown => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+};
+
+const toCompareEntity = (value: unknown): CompareEntityConfig | null => {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const label = typeof obj.label === "string" ? obj.label : undefined;
+  if (!label) return null;
+  const segment = typeof obj.segment === "string" ? obj.segment : undefined;
+  const userLogin = typeof obj.userLogin === "string" ? obj.userLogin : undefined;
+  const model = typeof obj.model === "string" ? obj.model : undefined;
+  const language = typeof obj.language === "string" ? obj.language : undefined;
+  return {
+    label,
+    ...(segment ? { segment } : {}),
+    ...(userLogin ? { userLogin } : {}),
+    ...(model ? { model } : {}),
+    ...(language ? { language } : {}),
+  };
+};
+
+const getMetricKeysFromParams = (params: URLSearchParams) => {
+  const trendMetricParam = params.get("metricKey");
+  const summaryMetricParam = params.get("metricKey");
+  const breakdownMetricParam = params.get("metricKey");
+
+  const trendMetricKey: TrendMetricKey = (
+    trendMetricParam === "interactions" ||
+    trendMetricParam === "loc_added" ||
+    trendMetricParam === "acceptance_rate" ||
+    trendMetricParam === "acceptances" ||
+    trendMetricParam === "suggestions"
+  ) ? trendMetricParam : "interactions";
+
+  const summaryMetricKey: SummaryMetricKey = (
+    summaryMetricParam === "total_interactions" ||
+    summaryMetricParam === "total_loc_added" ||
+    summaryMetricParam === "acceptance_rate"
+  ) ? summaryMetricParam : "total_interactions";
+  
+  const breakdownMetricKey: BreakdownMetricKey = (
+    breakdownMetricParam === "interactions" ||
+    breakdownMetricParam === "suggestions" ||
+    breakdownMetricParam === "acceptances" ||
+    breakdownMetricParam === "loc_suggested_to_add" ||
+    breakdownMetricParam === "loc_suggested_to_delete" ||
+    breakdownMetricParam === "loc_added" ||
+    breakdownMetricParam === "loc_deleted" ||
+    breakdownMetricParam === "acceptance_rate"
+  ) ? breakdownMetricParam : "interactions";
+
+  return { trendMetricKey, summaryMetricKey, breakdownMetricKey };
+};
+
+const normalizeBreakdownDimension = (value: string | null, allowDefault: boolean, warnings: string[]) => {
+  if (!value) {
+    return allowDefault ? "model" : null;
+  }
+  if (value === "team") {
+    warnings.push("by=team is invalid; used by=feature instead.");
+    return "feature";
+  }
+  if (ALLOWED_BREAKDOWN_DIMENSIONS.includes(value as BreakdownDimension)) {
+    return value as BreakdownDimension;
+  }
+  warnings.push(`Invalid breakdown dimension '${value}'.`);
+  return null;
+};
+
+// --- Route Handlers ---
+
+type HandlerContext = {
+  params: URLSearchParams;
+  filters: {
+    startDate?: Date;
+    endDate?: Date;
+    segment?: string;
+    userLogin?: string;
+    model?: string;
+    language?: string;
+  };
+  metricKeys: ReturnType<typeof getMetricKeysFromParams>;
+};
+
+const routeHandlers: Record<string, (context: HandlerContext) => Promise<{ data: MetricData; summary: Record<string, unknown> }>> = {
+  "/api/metrics/compare/summary": async ({ params, filters, metricKeys }) => {
+    const entityA = toCompareEntity(parseJsonParam(params.get("entityA")));
+    const entityB = toCompareEntity(parseJsonParam(params.get("entityB")));
+    const { summaryMetricKey } = metricKeys;
+    const { startDate, endDate } = filters;
+
+    if (entityA && entityB) {
+      const data = await MetricsService.getComparisonSummary(entityA, entityB, summaryMetricKey, { startDate, endDate });
+      return { data, summary: data as unknown as Record<string, unknown> };
+    } else {
+      const data: CompareSummaryResponse = {
+        metric: summaryMetricKey,
+        gap: 0,
+        entityA: { label: entityA?.label || "Entity A", value: 0, isHigher: false },
+        entityB: { label: entityB?.label || "Entity B", value: 0, isHigher: false },
+      };
+      const summary = {
+        ...data,
+        error: "Invalid compare entities. Provide label and either segment or userLogin.",
+      };
+      return { data, summary };
+    }
+  },
+  "/api/metrics/compare/trends": async ({ params, filters, metricKeys }) => {
+    const parsedQueries = parseJsonParam(params.get("queries"));
+    const entities = Array.isArray(parsedQueries)
+      ? parsedQueries.map(toCompareEntity).filter((e): e is CompareEntityConfig => e !== null)
+      : [];
+    const { trendMetricKey } = metricKeys;
+    const { startDate, endDate } = filters;
+    
+    const data = entities.length
+      ? await MetricsService.getMultiSeriesTrends(entities, trendMetricKey, { startDate, endDate })
+      : [];
+    
+    const summary = {
+      series_count: entities.length,
+      series_labels: entities.map((entity) => entity.label),
+      data_points: data.length,
+    };
+    return { data: data as SeriesPoint[], summary };
+  },
+  "/api/metrics/breakdown/compare": async ({ params, filters, metricKeys }) => {
+    const warnings: string[] = [];
+    const byParam = normalizeBreakdownDimension(params.get("by"), false, warnings);
+    const { breakdownMetricKey } = metricKeys;
+    const compareStart = params.get("compareStart");
+    const compareEnd = params.get("compareEnd");
+
+    if (byParam && compareStart && compareEnd) {
+      const compareFilters = { ...filters, startDate: new Date(compareStart), endDate: new Date(compareEnd) };
+      const data = await MetricsService.getBreakdownComparison(byParam, breakdownMetricKey, filters, compareFilters);
+      const summary = { metric: breakdownMetricKey, period_count: 2, ...(warnings.length > 0 && { warnings }) };
+      return { data, summary };
+    } else {
+      const summary = {
+        error: byParam ? "Missing breakdown comparison parameters" : "Invalid breakdown dimension",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+        ...(warnings.length > 0 && { warnings }),
+      };
+      return { data: [], summary };
+    }
+  },
+  "/api/metrics/breakdown/stability": async ({ params, filters, metricKeys }) => {
+    const warnings: string[] = [];
+    const byParam = normalizeBreakdownDimension(params.get("by"), false, warnings);
+    const { breakdownMetricKey } = metricKeys;
+
+    if (byParam) {
+      const data = await MetricsService.getBreakdownStability(byParam, breakdownMetricKey, filters);
+      const summary = { metric: breakdownMetricKey, ...(warnings.length > 0 && { warnings }) };
+      return { data, summary };
+    } else {
+      const summary = {
+        error: "Missing or invalid breakdown stability parameters",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+        ...(warnings.length > 0 && { warnings }),
+      };
+      return { data: [], summary };
+    }
+  },
+  "/api/metrics/users/change": async ({ params, filters, metricKeys }) => {
+    const { breakdownMetricKey } = metricKeys;
+    const compareStart = params.get("compareStart");
+    const compareEnd = params.get("compareEnd");
+    if (compareStart && compareEnd) {
+      const compareFilters = { ...filters, startDate: new Date(compareStart), endDate: new Date(compareEnd) };
+      const data = await MetricsService.getUserChange(breakdownMetricKey, filters, compareFilters);
+      return { data, summary: { metric: breakdownMetricKey } };
+    }
+    return { data: [], summary: { error: "Missing user change parameters" } };
+  },
+  "/api/metrics/users/first-active": async ({ filters }) => {
+    const data = await MetricsService.getUsersFirstActive(filters);
+    return { data, summary: { total: data.length } };
+  },
+  "/api/metrics/users/usage-rate": async ({ filters }) => {
+    const data = await MetricsService.getUsersUsageRates(filters);
+    return { data, summary: data as unknown as Record<string, unknown> };
+  },
+  "/api/metrics/summary": async ({ filters }) => {
+    const data = await MetricsService.getSummary(filters);
+    return { data, summary: data as unknown as Record<string, unknown> };
+  },
+  "/api/metrics/trends": async ({ filters }) => {
+    const data = await MetricsService.getDailyTrends(filters);
+    const summary = {
+      total_interactions_in_period: data.reduce((acc, curr) => acc + (curr.interactions || 0), 0),
+      ...calculateTrendStats(data),
+    };
+    return { data, summary };
+  },
+  "/api/metrics/users": async ({ filters }) => {
+    const data = await MetricsService.getUsersList(filters);
+    const summary = {
+      top_user: data[0]?.user_login || "None",
+      top_user_interactions: data[0]?.interactions || 0,
+      top_10_list: data.slice(0, 10).map(u => ({ name: u.user_login, value: u.interactions })),
+      ...calculateDistributionStats(data),
+    };
+    return { data, summary };
+  },
+  "/api/metrics/breakdown": async ({ params, filters }) => {
+    const warnings: string[] = [];
+    const by = normalizeBreakdownDimension(params.get("by"), true, warnings);
+    if (!by) {
+      const summary = {
+        error: "Invalid breakdown dimension",
+        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
+        ...(warnings.length > 0 && { warnings }),
+      };
+      return { data: [], summary };
+    }
+    const data = await MetricsService.getBreakdown(by, filters);
+    const summary = {
+      top_category: data[0]?.name,
+      top_category_value: data[0]?.interactions,
+      top_10_list: data.slice(0, 10).map(b => ({ name: b.name, value: b.interactions })),
+      ...calculateDistributionStats(data),
+      ...(warnings.length > 0 && { warnings }),
+    };
+    return { data, summary };
+  }
+};
+
+async function fetchDataForEndpoint(endpoint: string): Promise<{ data: MetricData; summary: Record<string, unknown> }> {
   if (!endpoint) return { data: [], summary: {} };
 
   const baseDate = startOfDayUTC(new Date());
@@ -183,7 +423,6 @@ async function fetchDataForEndpoint(endpoint: string) {
       JSON.stringify({ tokens: resolvedTokens, endpoint: resolvedEndpoint })
     );
   }
-
   if (unresolvedTokens.length > 0) {
     console.warn(
       "⚠️ [Server] Unresolved placeholders in endpoint:",
@@ -193,265 +432,37 @@ async function fetchDataForEndpoint(endpoint: string) {
 
   const url = new URL(resolvedEndpoint, PARSING_BASE_URL);
   const params = url.searchParams;
+  const path = url.pathname;
+  
   console.log({ endpoint, resolvedEndpoint });
+
+  // Find the correct handler in our map
+  const handler = routeHandlers[path];
+  if (!handler) {
+    const summary = { error: `Invalid endpoint path: ${path}` };
+    console.warn(`[Server] No handler found for path: ${path}`);
+    return { data: [], summary };
+  }
+
+  // Prepare common parameters
   const rawStartDate = params.get("startDate") ?? params.get("start_date");
   const rawEndDate = params.get("endDate") ?? params.get("end_date");
   const startDate = rawStartDate ? new Date(rawStartDate) : undefined;
   const endDate = rawEndDate ? new Date(rawEndDate) : undefined;
-  const dateFilters = { startDate, endDate };
-  const hasPlaceholder = (value: string | null) => !!value && (value.includes("{") || value.includes("}"));
-  const isValidDate = (value?: Date) => (value ? !Number.isNaN(value.getTime()) : true);
-
-  if (rawStartDate || rawEndDate) {
-    console.log(
-      "🧪 [Server] Date params:",
-      JSON.stringify({ startDate: rawStartDate, endDate: rawEndDate })
-    );
-  }
-
-  if (hasPlaceholder(rawStartDate) || hasPlaceholder(rawEndDate)) {
-    console.warn(
-      "⚠️ [Server] Date placeholders detected in params:",
-      JSON.stringify({ startDate: rawStartDate, endDate: rawEndDate })
-    );
-  }
-
-  if (!isValidDate(startDate) || !isValidDate(endDate)) {
-    console.warn(
-      "⚠️ [Server] Invalid date parsing:",
-      JSON.stringify({
-        startDate: rawStartDate,
-        endDate: rawEndDate,
-        parsedStart: startDate?.toString(),
-        parsedEnd: endDate?.toString(),
-      })
-    );
-  }
-
+  
   const filters = {
-    ...dateFilters,
+    startDate,
+    endDate,
     segment: params.get("segment") || undefined,
     userLogin: params.get("userLogin") || undefined,
     model: params.get("model") || undefined,
     language: params.get("language") || undefined,
   };
+  
+  const metricKeys = getMetricKeysFromParams(params);
 
-  const path = url.pathname;
-  let data: MetricData = [];
-  let summary: Record<string, unknown> = {};
-
-  const parseJsonParam = (value: string | null): unknown => {
-    if (!value) return null;
-    try {
-      return JSON.parse(value) as unknown;
-    } catch {
-      return null;
-    }
-  };
-
-  const toCompareEntity = (value: unknown): CompareEntityConfig | null => {
-    if (!value || typeof value !== "object") return null;
-    const obj = value as Record<string, unknown>;
-    const label = typeof obj.label === "string" ? obj.label : undefined;
-    if (!label) return null;
-    const segment = typeof obj.segment === "string" ? obj.segment : undefined;
-    const userLogin = typeof obj.userLogin === "string" ? obj.userLogin : undefined;
-    const model = typeof obj.model === "string" ? obj.model : undefined;
-    const language = typeof obj.language === "string" ? obj.language : undefined;
-    return {
-      label,
-      ...(segment ? { segment } : {}),
-      ...(userLogin ? { userLogin } : {}),
-      ...(model ? { model } : {}),
-      ...(language ? { language } : {}),
-    };
-  };
-
-  const breakdownWarnings: string[] = [];
-  const normalizeBreakdownDimension = (value: string | null, allowDefault: boolean) => {
-    if (!value) {
-      return allowDefault ? "model" : null;
-    }
-    if (value === "team") {
-      breakdownWarnings.push("by=team is invalid; used by=feature instead.");
-      return "feature";
-    }
-    if (ALLOWED_BREAKDOWN_DIMENSIONS.includes(value as BreakdownDimension)) {
-      return value as BreakdownDimension;
-    }
-    breakdownWarnings.push(`Invalid breakdown dimension '${value}'.`);
-    return null;
-  };
-
-  const trendMetricParam = params.get("metricKey");
-  const summaryMetricParam = params.get("metricKey");
-  const breakdownMetricParam = params.get("metricKey");
-  const trendMetricKey: TrendMetricKey = (
-    trendMetricParam === "interactions" ||
-    trendMetricParam === "loc_added" ||
-    trendMetricParam === "acceptance_rate" ||
-    trendMetricParam === "acceptances" ||
-    trendMetricParam === "suggestions"
-  ) ? trendMetricParam : "interactions";
-  const summaryMetricKey: SummaryMetricKey = (
-    summaryMetricParam === "total_interactions" ||
-    summaryMetricParam === "total_loc_added" ||
-    summaryMetricParam === "acceptance_rate"
-  ) ? summaryMetricParam : "total_interactions";
-  const breakdownMetricKey: BreakdownMetricKey = (
-    breakdownMetricParam === "interactions" ||
-    breakdownMetricParam === "suggestions" ||
-    breakdownMetricParam === "acceptances" ||
-    breakdownMetricParam === "loc_suggested_to_add" ||
-    breakdownMetricParam === "loc_suggested_to_delete" ||
-    breakdownMetricParam === "loc_added" ||
-    breakdownMetricParam === "loc_deleted" ||
-    breakdownMetricParam === "acceptance_rate"
-  ) ? breakdownMetricParam : "interactions";
-
-  if (path.includes("/compare/summary")) {
-    const entityA = toCompareEntity(parseJsonParam(params.get("entityA")));
-    const entityB = toCompareEntity(parseJsonParam(params.get("entityB")));
-
-    if (entityA && entityB) {
-      const comparison = await MetricsService.getComparisonSummary(entityA, entityB, summaryMetricKey, dateFilters);
-      data = comparison;
-      summary = comparison as unknown as Record<string, unknown>;
-    } else {
-      data = {
-        metric: summaryMetricKey,
-        gap: 0,
-        entityA: { label: entityA?.label || "Entity A", value: 0, isHigher: false },
-        entityB: { label: entityB?.label || "Entity B", value: 0, isHigher: false },
-      };
-      summary = {
-        ...(data as CompareSummaryResponse as unknown as Record<string, unknown>),
-        error: "Invalid compare entities. Provide label and either segment or userLogin.",
-      };
-    }
-  } else if (path.includes("/compare/trends")) {
-    const parsedQueries = parseJsonParam(params.get("queries"));
-    const entities = Array.isArray(parsedQueries)
-      ? parsedQueries
-          .map((entry) => toCompareEntity(entry))
-          .filter((entity): entity is CompareEntityConfig => entity !== null)
-      : [];
-
-    const seriesData = entities.length
-      ? await MetricsService.getMultiSeriesTrends(entities, trendMetricKey, dateFilters)
-      : [];
-
-    data = seriesData as SeriesPoint[];
-    summary = {
-      series_count: entities.length,
-      series_labels: entities.map((entity) => entity.label),
-      data_points: seriesData.length,
-    };
-  } else if (path.includes("/breakdown/compare")) {
-    const byParam = normalizeBreakdownDimension(params.get("by"), false);
-    const compareStart = params.get("compareStart");
-    const compareEnd = params.get("compareEnd");
-
-    if (byParam && compareStart && compareEnd) {
-      const compareFilters = {
-        ...filters,
-        startDate: new Date(compareStart),
-        endDate: new Date(compareEnd),
-      };
-      data = await MetricsService.getBreakdownComparison(byParam, breakdownMetricKey, filters, compareFilters);
-      summary = { metric: breakdownMetricKey, period_count: 2 };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    } else {
-      data = [];
-      summary = {
-        error: byParam ? "Missing breakdown comparison parameters" : "Invalid breakdown dimension",
-        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
-      };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    }
-  } else if (path.includes("/breakdown/stability")) {
-    const byParam = normalizeBreakdownDimension(params.get("by"), false);
-    if (byParam) {
-      data = await MetricsService.getBreakdownStability(byParam, breakdownMetricKey, filters);
-      summary = { metric: breakdownMetricKey };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    } else {
-      data = [];
-      summary = {
-        error: "Missing or invalid breakdown stability parameters",
-        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
-      };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    }
-  } else if (path.includes("/users/change")) {
-    const compareStart = params.get("compareStart");
-    const compareEnd = params.get("compareEnd");
-    if (compareStart && compareEnd) {
-      const compareFilters = {
-        ...filters,
-        startDate: new Date(compareStart),
-        endDate: new Date(compareEnd),
-      };
-      data = await MetricsService.getUserChange(breakdownMetricKey, filters, compareFilters);
-      summary = { metric: breakdownMetricKey };
-    } else {
-      data = [];
-      summary = { error: "Missing user change parameters" };
-    }
-  } else if (path.includes("/users/first-active")) {
-    data = await MetricsService.getUsersFirstActive(filters);
-    summary = { total: Array.isArray(data) ? data.length : 0 };
-  } else if (path.includes("/users/usage-rate")) {
-    const usageRate = await MetricsService.getUsersUsageRates(filters);
-    data = usageRate;
-    summary = usageRate as unknown as Record<string, unknown>;
-  } else if (path.includes("/summary")) {
-    const res = await MetricsService.getSummary(filters);
-    data = res; // Return object directly for KPIGrid compatibility
-    summary = res as unknown as Record<string, unknown>;
-  } else if (path.includes("/trends")) {
-    const trendData = await MetricsService.getDailyTrends(filters);
-    data = trendData;
-    const trendStats = calculateTrendStats(trendData);
-    const total = trendData.reduce((acc, curr) => acc + (curr.interactions || 0), 0);
-    summary = { 
-      total_interactions_in_period: total, 
-      ...trendStats 
-    };
-  } else if (path.includes("/users")) {
-    const users = await MetricsService.getUsersList(filters);
-    data = users;
-    const distStats = calculateDistributionStats(users);
-    summary = { 
-      top_user: users[0]?.user_login || "None", 
-      top_user_interactions: users[0]?.interactions || 0,
-      top_10_list: users.slice(0, 10).map(u => ({ name: u.user_login, value: u.interactions })),
-      ...distStats
-    };
-  } else if (path.includes("/breakdown")) {
-    const by = normalizeBreakdownDimension(params.get("by"), true);
-    if (!by) {
-      data = [];
-      summary = {
-        error: "Invalid breakdown dimension",
-        allowedDimensions: ALLOWED_BREAKDOWN_DIMENSIONS,
-      };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    } else {
-      const breakdown = await MetricsService.getBreakdown(by, filters);
-      data = breakdown;
-      const distStats = calculateDistributionStats(breakdown);
-      summary = { 
-        top_category: breakdown[0]?.name, 
-        top_category_value: breakdown[0]?.interactions,
-        top_10_list: breakdown.slice(0, 10).map(b => ({ name: b.name, value: b.interactions })),
-        ...distStats
-      };
-      if (breakdownWarnings.length > 0) summary.warnings = breakdownWarnings;
-    }
-  }
-
-  return { data, summary };
+  // Execute the handler
+  return handler({ params, filters, metricKeys });
 }
 
 /**
