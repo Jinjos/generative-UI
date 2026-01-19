@@ -23,7 +23,7 @@ export const Sidebar = ({ navItems }: SidebarProps) => (
           <div className="absolute right-0 top-0 h-4 w-4 -rotate-12 bg-[#421c83]" />
           <div className="absolute bottom-0 left-0 h-4 w-4 rotate-12 bg-[var(--color-highlight)]" />
         </div>
-        <span className="font-display text-xl text-[color:var(--color-primary)]">CUBIC</span>
+        <span className="font-display text-xl text-[color:var(--color-primary)]">DEMO</span>
       </div>
       <button className="rounded-full bg-[var(--color-soft-lavender)] p-2 text-[color:var(--color-highlight)]">
         <Chevron className="h-4 w-4 rotate-180" />

@@ -24,7 +24,20 @@ export const ChartConfigSchema = z.object({
   
   // KPI Config
   kpiDefinitions: z.array(z.object({
-    key: z.string().describe("The JSON key in the response summary object (e.g., 'total_hours_saved')"),
+    key: z.enum([
+      "total_interactions",
+      "total_suggestions",
+      "total_acceptances",
+      "total_loc_suggested_to_add",
+      "total_loc_suggested_to_delete",
+      "total_loc_added",
+      "total_loc_deleted",
+      "active_users_count",
+      "active_days",
+      "uses_agent",
+      "uses_chat",
+      "acceptance_rate",
+    ]).describe("The JSON key in the response summary object (e.g., 'total_hours_saved')"),
     label: z.string().describe("The human-readable label (e.g., 'Hours Saved')"),
     format: z.enum(["number", "currency", "suffix_k"]).optional(),
   })).optional().describe("Required only if component is KPIGrid"),
@@ -52,7 +65,20 @@ export const HeaderStatSchema = z.object({
   component: z.enum(["SmartStatCard", "CompareStatCard"]).optional().default("SmartStatCard"),
   title: z.string().describe("Label for the stat (e.g., 'Total Users')"),
   apiEndpoint: z.string().describe("The API endpoint to fetch the value from"),
-  dataKey: z.string().optional().describe("The JSON key for the value (Required for SmartStatCard)"),
+  dataKey: z.enum([
+    "total_interactions",
+    "total_suggestions",
+    "total_acceptances",
+    "total_loc_suggested_to_add",
+    "total_loc_suggested_to_delete",
+    "total_loc_added",
+    "total_loc_deleted",
+    "active_users_count",
+    "active_days",
+    "uses_agent",
+    "uses_chat",
+    "acceptance_rate",
+  ]).optional().describe("The JSON key for the value (Required for SmartStatCard)"),
   filter: z.string().optional().describe("Time filter label (e.g., 'Month')"),
 });
 
