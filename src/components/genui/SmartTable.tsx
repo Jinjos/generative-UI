@@ -32,9 +32,10 @@ interface TableDataResponse {
 const formatCell = (val: unknown, format?: string, columnKey?: string) => {
   if (val === undefined || val === null) return "-";
   
-  // Clean up team/section names first
-  if ((columnKey === 'label' || columnKey === 'name') && typeof val === 'string' && val.startsWith('section_')) {
-    val = val.replace(/^section_/, '');
+  let processedVal = val;
+  // Clean up section_ prefix if present
+  if (typeof processedVal === 'string' && processedVal.startsWith('section_')) {
+    processedVal = processedVal.replace(/^section_/, '');
   }
 
   // Auto-detect percentage based on key name or value range
@@ -43,32 +44,32 @@ const formatCell = (val: unknown, format?: string, columnKey?: string) => {
                        (columnKey?.toLowerCase().includes("efficiency"));
 
   if (isPercentage) {
-    const num = Number(val);
-    return isNaN(num) ? String(val) : `${(num * 100).toFixed(1)}%`;
+    const num = Number(processedVal);
+    return isNaN(num) ? String(processedVal) : `${(num * 100).toFixed(1)}%`;
   }
 
   if (format === "date") {
-    const d = new Date(val as string | number | Date);
-    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
+    const d = new Date(processedVal as string | number | Date);
+    return isNaN(d.getTime()) ? String(processedVal) : d.toLocaleDateString();
   }
 
-  if (format === "currency") return typeof val === 'number' ? `$${val.toLocaleString()}` : String(val);
+  if (format === "currency") return typeof processedVal === 'number' ? `$${processedVal.toLocaleString()}` : String(processedVal);
 
-  if (format === "number" || typeof val === 'number') {
-    const num = Number(val);
-    return isNaN(num) ? String(val) : num.toLocaleString();
+  if (format === "number" || typeof processedVal === 'number') {
+    const num = Number(processedVal);
+    return isNaN(num) ? String(processedVal) : num.toLocaleString();
   }
 
   if (format === "status") {
     // Simple status chip logic
     return (
       <span className="flex items-center gap-2">
-         <span className={`h-2 w-2 rounded-full ${val === 'Pending' ? 'bg-[var(--color-yellow)]' : 'bg-[var(--color-green)]'}`} />
-         {String(val)}
+         <span className={`h-2 w-2 rounded-full ${processedVal === 'Pending' ? 'bg-[var(--color-yellow)]' : 'bg-[var(--color-green)]'}`} />
+         {String(processedVal)}
       </span>
     );
   }
-  return String(val);
+  return String(processedVal);
 };
 
 export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
@@ -192,7 +193,7 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
                   <td key={`${i}-${col.key}`} className="px-4 py-3 text-[color:var(--color-primary)] whitespace-nowrap">
                     {(() => {
                       let displayValue;
-                      if (col.key === 'label' || col.key === 'userLogin') {
+                      if (col.key === 'user_login' || col.key === 'feature') {
                         displayValue = getNestedValue(row, 'name'); // Prioritize 'name'
                         if (displayValue === undefined || displayValue === null) {
                           displayValue = getNestedValue(row, col.key); // Fallback to original key
@@ -202,8 +203,8 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
                       }
 
                       let actualFormat = col.format;
-                      // If the column key is for a name/label and the value is a string, ensure it's not formatted as a number
-                      if ((col.key === 'label' || col.key === 'name' || col.key === 'userLogin') && typeof displayValue === 'string') {
+                      // If the column key is for a name/label-like field and the value is a string, ensure it's not formatted as a number
+                      if ((col.key === 'label' || col.key === 'name' || col.key === 'user_login' || col.key === 'feature') && typeof displayValue === 'string') {
                         if (actualFormat === 'number') {
                           actualFormat = undefined; // Override number format for string labels
                         }
