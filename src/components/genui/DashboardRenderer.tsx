@@ -22,7 +22,6 @@ import { SplitLayout } from "@/components/layout/SplitLayout";
 import { SmartStatCard } from "@/components/genui/SmartStatCard";
 import { CompareStatCard } from "@/components/genui/CompareStatCard";
 import type { DashboardTool, ChartConfig } from "@/lib/genui/schemas";
-import { cn } from "@/lib/utils";
 
 interface DashboardRendererProps {
   config: DashboardTool | null;
@@ -74,9 +73,9 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
       'grid-cols-1';
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col h-full gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Dynamic Stats Row */}
-        <section className="mb-6">
+        <section>
           <div className={`grid gap-6 ${gridCols}`}>
             {config.headerStats?.map((stat, i) => (
               stat.component === 'CompareStatCard' ? (
@@ -88,24 +87,24 @@ export function DashboardRenderer({ config }: DashboardRendererProps) {
           </div>
         </section>
 
-        {/* Main Content Grid (Center + Sidebar) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-          {/* Main Slot (2/3 width on large screens) */}
-          <div className={cn(
-            "lg:col-span-2 min-w-0", 
-            (!config.slotRightTop && !config.slotRightBottom) && "lg:col-span-3"
-          )}>
-            {renderToolComponent(config.slotMain)}
-          </div>
+        {/* "Top" Slot (previously slotRightTop) */}
+        {config.slotRightTop && (
+          <section>
+            {renderToolComponent(config.slotRightTop)}
+          </section>
+        )}
 
-          {/* Sidebar Slots (1/3 width on large screens) */}
-          {(config.slotRightTop || config.slotRightBottom) && (
-            <div className="flex flex-col gap-6 lg:col-span-1 min-w-0">
-              {config.slotRightTop && renderToolComponent(config.slotRightTop)}
-              {config.slotRightBottom && renderToolComponent(config.slotRightBottom)}
-            </div>
-          )}
-        </div>
+        {/* Main Slot */}
+        <section className="flex-1">
+          {renderToolComponent(config.slotMain)}
+        </section>
+
+        {/* "Bottom" Slot (previously slotRightBottom) */}
+        {config.slotRightBottom && (
+          <section>
+            {renderToolComponent(config.slotRightBottom)}
+          </section>
+        )}
       </div>
     );
   }

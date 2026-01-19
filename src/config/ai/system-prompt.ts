@@ -1,99 +1,10 @@
-import { DATA_SCHEMA, type DataSchemaField } from "@/config/ai/data-schema";
-import fs from "node:fs";
-import path from "node:path";
-
 /**
  * Builds the system prompt dynamically.
  * Keeps runtime context lean for fine-tuned models.
  */
-const buildSchemaKeyReminder = () => {
-  const schemaEntries = Object.entries(DATA_SCHEMA) as Array<
-    [string, Record<string, DataSchemaField>]
-  >;
 
-  return schemaEntries
-    .map(([category, fields]) => `${category}: ${Object.keys(fields).join(", ")}`)
-    .join("\n");
-};
-
-const buildFullSchemaText = () => {
-  const schemaEntries = Object.entries(DATA_SCHEMA) as Array<
-    [string, Record<string, DataSchemaField>]
-  >;
-
-  return schemaEntries.map(([category, fields]) => {
-    const fieldLines = Object.entries(fields)
-      .map(([key, meta]) => `- ${key}: ${meta.description}`)
-      .join("\n");
-
-    return `### ${category}\n${fieldLines}`;
-  }).join("\n\n");
-};
-
-const DEBUG_FEWSHOT_USERS = [
-  "Compare gpt-4o vs. claude-3-5-sonnet for TypeScript files. Which model writes better code?",
-  "Which team has the best balance of suggestions and acceptances?",
-  "Which users show declining AI usage over the last month?",
-  "Which teams are most consistent in daily AI usage?"
-];
-
-const buildDebugFewshotsFromJsonl = (maxExamples: number) => {
-  if (process.env.GENUI_PROMPT_DEBUG !== "1") return "";
-
-  const jsonlPath = path.resolve(process.cwd(), "genui_finetune_master.jsonl");
-  if (!fs.existsSync(jsonlPath)) return "";
-
-  const lines = fs.readFileSync(jsonlPath, "utf8").split(/\r?\n/).filter(Boolean);
-  const matched = new Map<string, { user: string; assistant: string }>();
-  const fallback: Array<{ user: string; assistant: string }> = [];
-
-  for (const line of lines) {
-    try {
-      const parsed = JSON.parse(line) as { messages?: Array<{ role: string; content: string }> };
-      const messages = parsed.messages || [];
-      const userMessage = messages[1]?.content;
-      const assistantMessage = messages[2]?.content;
-      if (!userMessage || !assistantMessage) continue;
-      if (DEBUG_FEWSHOT_USERS.includes(userMessage)) {
-        matched.set(userMessage, { user: userMessage, assistant: assistantMessage });
-      }
-      if (fallback.length < maxExamples) {
-        fallback.push({ user: userMessage, assistant: assistantMessage });
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  const selected = DEBUG_FEWSHOT_USERS
-    .map((user) => matched.get(user))
-    .filter((entry): entry is { user: string; assistant: string } => Boolean(entry))
-    .slice(0, maxExamples);
-
-  const examples = selected.length > 0 ? selected : fallback.slice(0, maxExamples);
-  if (examples.length === 0) return "";
-
-  return examples.map((ex, idx) => {
-    return `Example ${idx + 1}:\nUser: ${ex.user}\nAssistant: ${ex.assistant}`;
-  }).join("\n\n");
-};
-
-const buildDebugContext = () => {
-  if (process.env.GENUI_PROMPT_DEBUG !== "1") return "";
-  const fullSchema = buildFullSchemaText();
-  const fewshots = buildDebugFewshotsFromJsonl(4);
-  if (!fullSchema && !fewshots) return "";
-
-  return [
-    "Debug Context (testing only):",
-    fullSchema ? `Full Data Schema:\n${fullSchema}` : "",
-    fewshots ? `Fewshot Examples:\n${fewshots}` : ""
-  ].filter(Boolean).join("\n\n");
-};
 
 export const buildSystemPrompt = (dateContext: string) => {
-  const schemaKeys = buildSchemaKeyReminder();
-  const debugContext = buildDebugContext();
 
   return `You are the GenUI Orchestrator.
 ${dateContext}
@@ -164,11 +75,6 @@ Endpoint Catalog (valid routes + when to use):
 - /api/metrics/compare/summary?entityA={...}&entityB={...}&metricKey=...: two-entity KPI comparison (entityA/B are JSON).
 - /api/metrics/compare/trends?queries=[{...},{...}]&metricKey=...: multi-entity trend comparison (queries is JSON array).
 - /api/metrics/segments: list of available segments (team/section).
-
-Data Schema Keys (Reminder):
-${schemaKeys}
-
-${debugContext ? `\n${debugContext}\n` : ""}
 
 Output format: valid tool calls that match the registered tool schemas.`;
 };

@@ -30,6 +30,7 @@ export function ChatInterface({
   const { setActiveDashboard } = useChatContext();
   const isLoading = status === "submitted" || status === "streaming";
   const processedDashboardsRef = useRef<Set<string>>(new Set());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleShowDashboard = useCallback((output: unknown) => {
     if (typeof output === "object" && output !== null && "config" in output) {
@@ -64,6 +65,10 @@ export function ChatInterface({
       });
     });
   }, [handleShowDashboard, messages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className={`flex flex-col h-full overflow-hidden ${embedded ? '' : 'rounded-xl bg-[var(--color-unit)] shadow-2xl border border-[color:var(--color-stroke)]'}`}>
@@ -143,6 +148,7 @@ export function ChatInterface({
              </div>
            </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="p-4 bg-[var(--color-unit)] border-t border-[color:var(--color-stroke)]">

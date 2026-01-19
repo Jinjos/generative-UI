@@ -19,7 +19,14 @@ export const SmartStatCard = ({
 }: SmartStatCardProps) => {
   const { data, loading, error } = useDataFetcher<Record<string, unknown>>(apiEndpoint);
 
-  const rawValue = data ? getNestedValue(data, dataKey) : null;
+  const rawValue = (() => {
+    let value = data ? getNestedValue(data, dataKey) : null;
+    // Fallback logic for acceptance rate
+    if (dataKey.toLowerCase().includes('acceptance_rate') && (value === null || value === undefined)) {
+      value = data ? getNestedValue(data, 'acceptance_rate') : null;
+    }
+    return value;
+  })();
   const numValue = rawValue !== null ? Number(rawValue) : null;
   const isPercentage = !!(
     numValue !== null && 

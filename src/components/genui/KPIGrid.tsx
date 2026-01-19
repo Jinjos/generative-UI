@@ -51,7 +51,14 @@ export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
       {definitions.map((def) => {
-        const rawValue = getNestedValue(sourceData, def.key);
+        const rawValue = (() => {
+          let value = getNestedValue(sourceData, def.key);
+          // Fallback logic for acceptance rate
+          if (def.key.toLowerCase().includes('acceptance_rate') && (value === null || value === undefined)) {
+            value = getNestedValue(sourceData, 'acceptance_rate');
+          }
+          return value;
+        })();
         const displayValue = formatValue(rawValue, def.format);
 
         return (

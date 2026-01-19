@@ -32,6 +32,11 @@ interface TableDataResponse {
 const formatCell = (val: unknown, format?: string, columnKey?: string) => {
   if (val === undefined || val === null) return "-";
   
+  // Clean up team/section names first
+  if ((columnKey === 'label' || columnKey === 'name') && typeof val === 'string' && val.startsWith('section_')) {
+    val = val.replace(/^section_/, '');
+  }
+
   // Auto-detect percentage based on key name or value range
   const isPercentage = format === "percentage" || 
                        (columnKey?.toLowerCase().includes("rate")) || 
@@ -185,7 +190,26 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
               <tr key={i} className="border-b border-[color:var(--color-stroke)] hover:bg-[var(--color-bg)] transition-colors last:border-0">
                 {columns.map((col) => (
                   <td key={`${i}-${col.key}`} className="px-4 py-3 text-[color:var(--color-primary)] whitespace-nowrap">
-                    {formatCell(getNestedValue(row, col.key), col.format, col.key)}
+                    {(() => {
+                      let displayValue;
+                      if (col.key === 'label' || col.key === 'userLogin') {
+                        displayValue = getNestedValue(row, 'name'); // Prioritize 'name'
+                        if (displayValue === undefined || displayValue === null) {
+                          displayValue = getNestedValue(row, col.key); // Fallback to original key
+                        }
+                      } else {
+                        displayValue = getNestedValue(row, col.key); // For other keys, use as is
+                      }
+
+                      let actualFormat = col.format;
+                      // If the column key is for a name/label and the value is a string, ensure it's not formatted as a number
+                      if ((col.key === 'label' || col.key === 'name' || col.key === 'userLogin') && typeof displayValue === 'string') {
+                        if (actualFormat === 'number') {
+                          actualFormat = undefined; // Override number format for string labels
+                        }
+                      }
+                      return formatCell(displayValue, actualFormat, col.key);
+                    })()}
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right text-[color:var(--color-secondary)]">
