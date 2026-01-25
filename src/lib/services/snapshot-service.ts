@@ -17,53 +17,39 @@
  */
 
 import { DashboardTool } from "../genui/schemas";
+import { redisClient } from "../db/redis"; // Import the Redis client
 
-// In-memory cache for the prototype
-// In production, use Redis or a database
 interface SnapshotEntry {
   id: string;
-  createdAt: number;
-  data: Record<string, unknown> | unknown[];      // The heavy data (e.g., chart series)
-  summary: Record<string, unknown>;   // The high-level summary (for AI context)
-  config?: DashboardTool; // Optional: The UI config associated with this snapshot
+  createdAt: number; // Keep this for potential future debugging/info, even if Redis handles TTL
+  data: Record<string, unknown> | unknown[];
+  summary: Record<string, unknown>;
+  config?: DashboardTool;
 }
 
-const SNAPSHOT_TTL_MS = 10 * 60 * 1000; // 10 Minutes
-const MAX_SNAPSHOTS = 50; // Keep memory footprint low
-
-// Global cache persistence for HMR
-const globalForCache = global as unknown as { snapshotCache: Map<string, SnapshotEntry> };
-const cache = globalForCache.snapshotCache || new Map<string, SnapshotEntry>();
-if (process.env.NODE_ENV !== "production") globalForCache.snapshotCache = cache;
+const SNAPSHOT_TTL_SECONDS = 10 * 60; // 10 Minutes (Redis uses seconds)
 
 export class SnapshotService {
   /**
-   * Stores a data snapshot and returns a unique ID.
-   * Evicts old entries if cache is full.
+   * Stores a data snapshot in Redis and returns a unique ID.
    */
-  static saveSnapshot(
+  static async saveSnapshot(
     data: Record<string, unknown> | unknown[], 
     summary: Record<string, unknown>, 
     config?: DashboardTool
-  ): string {
+  ): Promise<string> { // Changed return type to Promise<string> as Redis operations are async
     const id = crypto.randomUUID();
     
-    // Eviction Policy (Simple LRU-ish: Delete oldest if full)
-    if (cache.size >= MAX_SNAPSHOTS) {
-      const oldestKey = cache.keys().next().value;
-      if (oldestKey) {
-        cache.delete(oldestKey);
-        console.warn(`🗑️ [SnapshotService] Evicted snapshot ${oldestKey} (Cache Full)`);
-      }
-    }
-
-    cache.set(id, {
+    const entry: SnapshotEntry = {
       id,
       createdAt: Date.now(),
       data,
       summary,
       config
-    });
+    };
+
+    // Store in Redis with expiration
+    await redisClient.setex(id, SNAPSHOT_TTL_SECONDS, JSON.stringify(entry));
 
     console.log(`📸 [SnapshotService] Created snapshot ${id}`);
     console.log(`📊 [SnapshotService] Summary:`, JSON.stringify(summary));
@@ -71,32 +57,25 @@ export class SnapshotService {
   }
 
   /**
-   * Retrieves a snapshot by ID. Returns null if expired or missing.
+   * Retrieves a snapshot by ID from Redis. Returns null if expired or missing.
    */
-  static getSnapshot(id: string): SnapshotEntry | null {
-    const entry = cache.get(id);
+  static async getSnapshot(id: string): Promise<SnapshotEntry | null> { // Changed return type to Promise<SnapshotEntry | null>
+    const entryJson = await redisClient.get(id);
     
-    if (!entry) {
-      console.warn(`⚠️ [SnapshotService] Miss: Snapshot ${id} not found`);
-      return null;
-    }
-
-    // Check expiration
-    if (Date.now() - entry.createdAt > SNAPSHOT_TTL_MS) {
-      cache.delete(id);
-      console.warn(`⏳ [SnapshotService] Expired: Snapshot ${id} deleted`);
+    if (!entryJson) {
+      console.warn(`⚠️ [SnapshotService] Miss: Snapshot ${id} not found or expired`);
       return null;
     }
 
     console.log(`✅ [SnapshotService] Hit: Snapshot ${id} retrieved`);
-    return entry;
+    return JSON.parse(entryJson) as SnapshotEntry;
   }
 
   /**
    * Returns data for the Client API, optionally paginated.
    */
-  static getSnapshotData(id: string, options?: { skip?: number; limit?: number; sortKey?: string; sortOrder?: 'asc' | 'desc'; key?: string }) {
-    const entry = this.getSnapshot(id);
+  static async getSnapshotData(id: string, options?: { skip?: number; limit?: number; sortKey?: string; sortOrder?: 'asc' | 'desc'; key?: string }) { // Changed to async
+    const entry = await this.getSnapshot(id); // Await the async call
     if (!entry) return null;
 
     let { data } = entry;

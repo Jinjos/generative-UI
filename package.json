@@ -26,6 +26,7 @@
     "@vercel/otel": "^2.1.0",
     "ai": "^6.0.3",
     "clsx": "^2.1.1",
+    "ioredis": "^5.9.2",
     "langfuse": "^3.38.6",
     "langfuse-vercel": "^3.38.6",
     "mongoose": "^8.20.4",

@@ -1,0 +1,54 @@
+version: '3.8'
+
+# This Docker Compose file sets up the local development environment for the GenUI project.
+# It includes services for MongoDB and Redis, allowing for a consistent and isolated
+# dependency setup.
+#
+# To Start Services:
+#   docker compose up -d
+#
+# To Stop Services:
+#   docker compose down
+#
+# To View Logs:
+#   docker compose logs -f mongo
+#   docker compose logs -f redis
+
+services:
+  # MongoDB Service
+  mongo:
+    image: mongo:6.0
+    container_name: genui-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis Service
+  redis:
+    image: redis:7.0-alpine
+    container_name: genui-redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo-data:
+    driver: local
+  redis-data:
+    driver: local

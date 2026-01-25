@@ -1,5 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SnapshotService } from '../snapshot-service';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { SnapshotService } from '../../services/snapshot-service';
+
+vi.mock('crypto', () => ({
+  randomUUID: vi.fn(() => 'test-uuid-sorting'),
+}));
 
 describe('SnapshotService Sorting', () => {
   const mockData = [
@@ -10,35 +14,38 @@ describe('SnapshotService Sorting', () => {
 
   let snapshotId: string;
 
-  beforeEach(() => {
-    snapshotId = SnapshotService.saveSnapshot(mockData, {});
+  beforeEach(async () => {
+    snapshotId = await SnapshotService.saveSnapshot(mockData, {});
   });
 
-  it('should sort ascending by string', () => {
-    const result = SnapshotService.getSnapshotData(snapshotId, { sortKey: 'name', sortOrder: 'asc' }) as { name: string }[];
+  it('should sort ascending by string', async () => {
+    const result = await SnapshotService.getSnapshotData(snapshotId, { sortKey: 'name', sortOrder: 'asc' }) as { name: string }[];
     expect(result[0].name).toBe('Alice');
     expect(result[1].name).toBe('Bob');
     expect(result[2].name).toBe('Charlie');
   });
 
-  it('should sort descending by number', () => {
-    const result = SnapshotService.getSnapshotData(snapshotId, { sortKey: 'score', sortOrder: 'desc' }) as { score: number }[];
+  it('should sort descending by number', async () => {
+    const result = await SnapshotService.getSnapshotData(snapshotId, { sortKey: 'score', sortOrder: 'desc' }) as { score: number }[];
     expect(result[0].score).toBe(100); // Alice
     expect(result[1].score).toBe(75);  // Bob
     expect(result[2].score).toBe(50);  // Charlie
   });
 
-  it('should combine sorting and pagination', () => {
+  it('should combine sorting and pagination', async () => {
     // Sort by name ASC (Alice, Bob, Charlie) -> Skip 1, Limit 1 -> Should be Bob
-    const result = SnapshotService.getSnapshotData(snapshotId, { 
+    const result = await SnapshotService.getSnapshotData(snapshotId, { 
       sortKey: 'name', 
       sortOrder: 'asc',
       skip: 1,
       limit: 1
-    }) as { data: { name: string }[]; pagination: { total: number } };
+    });
+    
+    // getSnapshotData returns { data, pagination } when paginated
+    const paginatedResult = result as { data: { name: string; }[]; pagination: { total: number; } };
 
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].name).toBe('Bob');
-    expect(result.pagination.total).toBe(3);
+    expect(paginatedResult.data).toHaveLength(1);
+    expect(paginatedResult.data[0].name).toBe('Bob');
+    expect(paginatedResult.pagination.total).toBe(3);
   });
 });

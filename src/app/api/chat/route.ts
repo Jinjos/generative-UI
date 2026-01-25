@@ -575,7 +575,7 @@ const renderDashboardTool = tool({
     console.log(`🛠️ [Server] Hydrated Heavy Data Type: ${Array.isArray(heavyData) ? 'Array' : typeof heavyData}`);
     console.log(`🛠️ [Server] Heavy Data Length: ${Array.isArray(heavyData) ? heavyData.length : 'N/A'}`);
 
-    const snapshotId = SnapshotService.saveSnapshot(
+    const snapshotId = await SnapshotService.saveSnapshot(
       (heavyData || []) as Record<string, unknown> | unknown[], 
       summary, 
       config
@@ -592,10 +592,10 @@ const renderDashboardTool = tool({
 
 /**
  * Tool 3: Code Interpreter (The Agent's "Brain")
- * Allows specific analysis by running code against the heavy data.
+ * Allows specific analysis by running code against freshly fetched data.
  */
 const analyzeDataWithCodeTool = tool({
-  description: "Analyze the raw data using JavaScript code. Use this when the summary is insufficient. You have access to a 'data' variable containing the array.",
+  description: "Analyze raw data from a new endpoint using JavaScript code. Use this for initial analysis or when no relevant snapshot is available.",
   inputSchema: z.object({
     endpoint: z.string().describe("The endpoint to fetch data from to analyze (e.g. /api/metrics/trends)"),
     code: z.string().describe("The JavaScript code to execute. Must return a value. Example: 'return data.filter(d => d.value > 10).length'"),
@@ -605,15 +605,13 @@ const analyzeDataWithCodeTool = tool({
     console.log("🧠 [Server] Endpoint:", endpoint);
 
     // 1. Fetch the Heavy Data (Server-side)
-    // We reuse the existing logic, just grabbing the data array
     const { data } = await fetchDataForEndpoint(endpoint);
     
     if (!data || (Array.isArray(data) && data.length === 0)) {
       return { error: "No data found at this endpoint." };
     }
 
-    // 2. Run Safe Analysis
-    // We expect 'data' to be an array for most analysis tasks
+    // 2. Run Safe Analysis - Ensure data is always an array
     const dataArray = Array.isArray(data) ? data : [data];
     const result = await AnalysisService.runAnalysis(dataArray, code);
     
@@ -623,7 +621,39 @@ const analyzeDataWithCodeTool = tool({
 });
 
 /**
- * Tool 4: Discovery (The Agent's "Compass")
+ * Tool 4: Snapshot Interpreter (The Agent's "Memory")
+ * Allows the agent to perform follow-up analysis on data it has already fetched for a dashboard.
+ */
+const analyzeSnapshotTool = tool({
+  description: "Analyze data from a previously created snapshot using JavaScript code. Use this for follow-up questions about a dashboard that is already being displayed, when a snapshotId is available in the conversation history.",
+  inputSchema: z.object({
+    snapshotId: z.string().describe("The ID of the snapshot to analyze."),
+    code: z.string().describe("The JavaScript code to execute against the data in the snapshot. The data is available in a variable named 'data'. Example: 'return data.users.length'"),
+  }),
+  execute: async ({ snapshotId, code }) => {
+    console.log("📸 [Server] analyze_snapshot triggered for:", snapshotId);
+    
+    const snapshot = await SnapshotService.getSnapshot(snapshotId);
+    if (!snapshot || !snapshot.data) {
+      return { error: `Snapshot with ID '${snapshotId}' not found or has no data.` };
+    }
+    
+    // The data in the snapshot might be a composite object (for dashboards) or a direct array
+    const dataForAnalysis = snapshot.data;
+    
+    console.log(`📸 [Server] Analyzing data of type: ${Array.isArray(dataForAnalysis) ? 'Array' : typeof dataForAnalysis}`);
+    
+    // Ensure data is always an array for the analysis service
+    const dataArray = Array.isArray(dataForAnalysis) ? dataForAnalysis : [dataForAnalysis];
+    const result = await AnalysisService.runAnalysis(dataArray, code);
+    
+    console.log("📸 [Server] Snapshot Analysis Result:", JSON.stringify(result));
+    return { result };
+  },
+});
+
+/**
+ * Tool 5: Discovery (The Agent's "Compass")
  * Finds valid teams/segments to filter by.
  */
 const getSegmentsTool = tool({
@@ -641,6 +671,7 @@ const tools = {
   get_metrics_summary: getMetricsSummaryTool,
   render_dashboard: renderDashboardTool,
   analyze_data_with_code: analyzeDataWithCodeTool,
+  analyze_snapshot: analyzeSnapshotTool,
   get_segments: getSegmentsTool,
 } as const;
 
