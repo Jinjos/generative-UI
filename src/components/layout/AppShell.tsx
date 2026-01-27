@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { CopilotSidebar } from "@/components/layout/CopilotSidebar";
 import { useChatContext, ChatProvider } from "@/hooks/use-chat-context";
+import { BeaconProvider } from "@/components/genui/BeaconProvider";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -18,12 +19,9 @@ interface NavItem {
 const baseNavItems: NavItem[] = [
   { label: "Dashboard", icon: "grid", href: "/" },
   { label: "Analytics", icon: "activity", href: "/analytics" },
-  { label: "Products", icon: "box" },
-  { label: "Customer", icon: "users" },
-  { label: "Category", icon: "folder" },
-  { label: "Orders", icon: "bag" },
-  { label: "Coupons", icon: "tag" },
-  { label: "Chats", icon: "chat", badge: "8" },
+  { label: "Users", icon: "users", href: "/users" },
+  { label: "Teams", icon: "folder", href: "/teams" },
+  { label: "Models", icon: "box", href: "/models" },
   { label: "Settings", icon: "settings" },
   { label: "Logout", icon: "logout" },
 ];
@@ -102,8 +100,10 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 // Main exported component that provides the context
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <ChatProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </ChatProvider>
+    <BeaconProvider>
+      <ChatProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </ChatProvider>
+    </BeaconProvider>
   );
 }

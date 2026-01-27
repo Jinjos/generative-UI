@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ChatUIMessage } from "@/app/api/chat/route";
 import { DashboardTool } from "@/lib/genui/schemas";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface ChatContextType {
   messages: ChatUIMessage[];
@@ -28,7 +29,16 @@ const getInitialTheme = () => {
 };
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const { messages, status, sendMessage } = useChat<ChatUIMessage>();
+  const { sessionId, views } = useBeacon();
+  // Determine persona: if we have registered views (content), we are an Analyst.
+  const persona = views.length > 0 ? "analyst" : "architect";
+
+  const { messages, status, sendMessage } = useChat<ChatUIMessage>({
+    body: {
+      chatId: sessionId,
+      persona
+    }
+  } as any);
 
   const [activeDashboard, setActiveDashboard] = useState<DashboardTool | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);

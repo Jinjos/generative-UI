@@ -38,3 +38,11 @@ function getRedisClient(): Redis {
 
 // Export the client instance
 export const redisClient = getRedisClient();
+
+/**
+ * Generates a standardized Redis key for storing user context (Beacon).
+ * Key format: genui:context:{sessionId}
+ */
+export function getContextKey(sessionId: string): string {
+  return `genui:context:${sessionId}`;
+}

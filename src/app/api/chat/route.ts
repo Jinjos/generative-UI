@@ -30,6 +30,8 @@ import { z } from "zod";
 import { DashboardToolSchema, DashboardTool } from "@/lib/genui/schemas";
 import { injectSnapshotIntoConfig } from "@/lib/genui/utils";
 import { buildSystemPrompt } from "@/config/ai/system-prompt";
+import { ANALYST_SYSTEM_PROMPT } from "@/config/ai/analyst-prompt";
+import { ANALYST_FEW_SHOT_EXAMPLES } from "@/config/ai/analyst-examples";
 import { after } from "next/server";
 import {
   observe,
@@ -38,6 +40,7 @@ import {
 } from "@langfuse/tracing";
 import { trace } from "@opentelemetry/api";
 import { langfuseSpanProcessor } from "@/instrumentation";
+import { redisClient, getContextKey } from "@/lib/db/redis";
 import { 
   MetricsService, 
 } from "@/lib/services/metrics-service";
@@ -667,12 +670,25 @@ const getSegmentsTool = tool({
   },
 });
 
+/**
+ * Tool 6: Context Awareness (The Agent's "Beacon")
+ * Reads the user's current page context from Redis.
+ */
+const getCurrentPageViewTool = tool({
+  description: "Get the current page URL and visible UI components. Use this to understand what the user is looking at.",
+  inputSchema: z.object({}), 
+  execute: async () => {
+    return { error: "Context not injected" };
+  },
+});
+
 const tools = {
   get_metrics_summary: getMetricsSummaryTool,
   render_dashboard: renderDashboardTool,
   analyze_data_with_code: analyzeDataWithCodeTool,
   analyze_snapshot: analyzeSnapshotTool,
   get_segments: getSegmentsTool,
+  get_current_page_view: getCurrentPageViewTool,
 } as const;
 
 // Export the message type for the client to use
@@ -683,15 +699,57 @@ const handler = async (req: Request) => {
   const { messages,
     chatId,
     userId,
-  }: { messages: ChatUIMessage[]; chatId?: string; userId?: string } = await req.json();
+    persona = "architect",
+  }: { messages: ChatUIMessage[]; chatId?: string; userId?: string; persona?: "architect" | "analyst" } = await req.json();
 
-  console.log(`[Request Handler] Chat ID: ${chatId}, User ID: ${userId}`);
+  console.log(`[Request Handler] Chat ID: ${chatId}, User ID: ${userId}, Persona: ${persona}`);
   console.log(`[Request Handler] Message count: ${messages.length}`);
+
+  // Create session-aware tools
+  const sessionTools = {
+    ...tools,
+    get_current_page_view: tool({
+      description: "Get the current page URL and visible UI components. Use this to understand what the user is looking at.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        console.log("👁️ [Server] getCurrentPageView triggered for:", chatId);
+        if (!chatId) return { error: "No Chat ID found" };
+        
+        const key = getContextKey(chatId);
+        const contextStr = await redisClient.get(key);
+        
+        if (!contextStr) {
+          console.log("👁️ [Server] No context found for key:", key);
+          return { page: "Unknown", error: "No active context found. The user might be on a page without a Beacon." };
+        }
+        
+        const context = JSON.parse(contextStr);
+        console.log("👁️ [Server] Context found:", context.page);
+        return context;
+      },
+    }),
+  };
+
+  // Select Tools based on Persona
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { render_dashboard, ...analystTools } = sessionTools;
+  const activeTools = persona === "analyst" ? analystTools : sessionTools;
 
   const now = new Date();
   const dateContext = `Today is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
   console.log("🔍 [Server] Date Context injected into prompt:", dateContext);
-  const systemPrompt = buildSystemPrompt(dateContext);
+  
+  let systemPrompt = buildSystemPrompt(dateContext);
+  
+  if (persona === "analyst") {
+    // Inject examples into the prompt for the analyst since it's not fine-tuned yet
+    const examplesText = ANALYST_FEW_SHOT_EXAMPLES.map(ex => 
+      `User: ${ex.user}\nAssistant: ${JSON.stringify(ex.tool_steps)}`
+    ).join("\n\n");
+    
+    systemPrompt = `${ANALYST_SYSTEM_PROMPT}\n${dateContext}\n\n## EXAMPLES\n${examplesText}`;
+  }
+
   const modelId = getModelId();
   console.log('MODEL ID', modelId)
   // Set session id and user id on active trace
@@ -718,7 +776,7 @@ const handler = async (req: Request) => {
 
     messages: await convertToModelMessages(messages),
     system: systemPrompt,
-    tools,
+    tools: activeTools,
     stopWhen: stepCountIs(5), // Crucial: Allows AI to see tool output and then write text
     experimental_telemetry: {
       isEnabled: true,

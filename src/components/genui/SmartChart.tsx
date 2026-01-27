@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useId } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface ChartSeries {
   key: string;
@@ -23,19 +24,41 @@ interface ChartApiResponse {
   [key: string]: unknown;
 }
 
-export function SmartChart({ 
-  apiEndpoint, 
-  title, 
+export function SmartChart({
+  apiEndpoint,
+  title,
   filter,
   xAxisKey = "date",
   series = [
     { key: "estimated_hours_saved", label: "Hours Saved", color: "var(--color-chart-1)" },
     { key: "active_users", label: "Active Users", color: "var(--color-chart-2)" }
-  ] 
+  ]
 }: SmartChartProps) {
+  const { registerView, unregisterView } = useBeacon();
+  const id = useId();
+
+  // Register this component with the Context Beacon
+  useEffect(() => {
+    // Parse params from the endpoint URL
+    const [path, queryString] = apiEndpoint.split('?');
+    const params = new URLSearchParams(queryString);
+    const paramsObj: Record<string, string> = {};
+    params.forEach((value, key) => { paramsObj[key] = value; });
+
+    registerView({
+      id,
+      component: "SmartChart",
+      title,
+      description: `Line chart showing ${series.map(s => s.label).join(", ")}`,
+      endpoint: apiEndpoint,
+      params: paramsObj
+    });
+
+    return () => unregisterView(id);
+  }, [id, apiEndpoint, title, series, registerView, unregisterView]);
+
   // We use unknown first to handle the dynamic nature, then cast specific fields
   const { data, loading, error } = useDataFetcher<ChartApiResponse | Array<Record<string, unknown>>>(apiEndpoint);
-
   if (loading) {
     return (
       <div className="flex h-[300px] w-full items-center justify-center rounded-[8px] bg-[var(--color-unit)] shadow-card">
