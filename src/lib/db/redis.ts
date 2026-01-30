@@ -16,7 +16,7 @@ function getRedisClient(): Redis {
       // Optional: Add more ioredis options here
       // For example, connection timeouts, retries, etc.
       maxRetriesPerRequest: null, // Disable auto-retry for faster fail if server is down
-      enableOfflineQueue: false, // Don't queue commands when offline
+      enableOfflineQueue: true, // Queue commands while offline and flush on reconnect
     });
 
     redis.on("error", (err) => {
@@ -38,3 +38,11 @@ function getRedisClient(): Redis {
 
 // Export the client instance
 export const redisClient = getRedisClient();
+
+/**
+ * Generates a standardized Redis key for storing user context (Beacon).
+ * Key format: genui:context:{sessionId}
+ */
+export function getContextKey(sessionId: string): string {
+  return `genui:context:${sessionId}`;
+}

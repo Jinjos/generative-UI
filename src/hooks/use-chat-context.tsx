@@ -1,15 +1,24 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { useChat } from "@ai-sdk/react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useChat, type UseChatHelpers } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { ChatUIMessage } from "@/app/api/chat/route";
 import { DashboardTool } from "@/lib/genui/schemas";
+import { useBeacon } from "@/components/genui/BeaconProvider";
+
+type ChatRequestBody = {
+  chatId: string;
+  persona: "architect" | "analyst";
+};
+
+let latestChatRequestBody: ChatRequestBody = { chatId: "", persona: "architect" };
+const getChatRequestBody = () => latestChatRequestBody;
 
 interface ChatContextType {
   messages: ChatUIMessage[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sendMessage: (message: { text: string } | any) => Promise<void>;
-  status: string;
+  sendMessage: UseChatHelpers<ChatUIMessage>["sendMessage"];
+  status: UseChatHelpers<ChatUIMessage>["status"];
   activeDashboard: DashboardTool | null;
   setActiveDashboard: (dashboard: DashboardTool | null) => void;
   isChatOpen: boolean;
@@ -28,7 +37,25 @@ const getInitialTheme = () => {
 };
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const { messages, status, sendMessage } = useChat<ChatUIMessage>();
+  const { sessionId, views } = useBeacon();
+  // Determine persona: if we have registered views (content), we are an Analyst.
+  const persona = views.length > 0 ? "analyst" : "architect";
+
+  useEffect(() => {
+    latestChatRequestBody = { chatId: sessionId, persona };
+  }, [sessionId, persona]);
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        body: getChatRequestBody,
+      }),
+    []
+  );
+
+  const { messages, status, sendMessage } = useChat<ChatUIMessage>({
+    transport,
+  });
 
   const [activeDashboard, setActiveDashboard] = useState<DashboardTool | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -54,7 +81,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     messages,
-    sendMessage: sendMessage as (message: { text: string }) => Promise<void>, 
+    sendMessage,
     status,
     activeDashboard,
     setActiveDashboard,

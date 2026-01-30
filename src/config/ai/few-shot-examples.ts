@@ -1,7 +1,7 @@
 export interface FewShotExample {
   user: string;
   tool_steps: {
-    tool: "get_metrics_summary" | "analyze_data_with_code" | "render_dashboard";
+    tool: "get_metrics_summary" | "analyze_data_with_code" | "render_dashboard" | "get_current_page_view";
     args: Record<string, unknown>;
   }[];
 }
