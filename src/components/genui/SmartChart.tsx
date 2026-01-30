@@ -40,7 +40,7 @@ export function SmartChart({
   // Register this component with the Context Beacon
   useEffect(() => {
     // Parse params from the endpoint URL
-    const [path, queryString] = apiEndpoint.split('?');
+    const [, queryString] = apiEndpoint.split("?");
     const params = new URLSearchParams(queryString);
     const paramsObj: Record<string, string> = {};
     params.forEach((value, key) => { paramsObj[key] = value; });

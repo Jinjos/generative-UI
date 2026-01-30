@@ -25,11 +25,6 @@ export default function TeamsPage() {
       {
         component: "SmartStatCard",
         title: "Total Teams",
-        apiEndpoint: "/api/metrics/segments", // This returns { segments: string[] } - SmartStatCard might handle array length? No.
-        // SmartStatCard expects a key. 
-        // We might need a summary endpoint for teams count.
-        // Or just show total interactions for now.
-        // Let's show "Total Interactions" globally.
         apiEndpoint: `/api/metrics/summary?startDate=${startDate}&endDate=${endDate}`,
         dataKey: "total_interactions",
         filter: "All Teams"

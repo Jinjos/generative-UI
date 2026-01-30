@@ -34,8 +34,16 @@ export async function POST(req: Request) {
     const { sessionId, ...contextData } = result.data;
     const redisKey = getContextKey(sessionId);
 
+    if (redisClient.status !== "ready") {
+      console.warn("[Beacon API] Redis not ready, skipping context write.");
+      return NextResponse.json(
+        { success: false, skipped: true, reason: "redis_not_ready" },
+        { status: 202 }
+      );
+    }
+
     // Save to Redis with a short TTL (5 minutes)
-    // We only care about "live" context. If the user is idle for 5 mins, 
+    // We only care about "live" context. If the user is idle for 5 mins,
     // the context is likely stale anyway.
     await redisClient.set(redisKey, JSON.stringify(contextData), "EX", 300);
 

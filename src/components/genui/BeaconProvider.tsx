@@ -27,24 +27,22 @@ const generateSessionId = () => Math.random().toString(36).substring(2, 15);
 
 export function BeaconProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [sessionId, setSessionId] = useState("");
-  
-  // State for the Beacon Payload
-  const [pageMeta, setPageMetadata] = useState<{ name: string; description?: string }>({ name: "Unknown" });
-  const [views, setViews] = useState<ComponentView[]>([]);
-  
-  // Use a ref to debounce the API call
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    // Initialize Session ID
+  const [sessionId] = useState(() => {
+    if (typeof window === "undefined") return "";
     let sid = window.sessionStorage.getItem("genui_session_id");
     if (!sid) {
       sid = generateSessionId();
       window.sessionStorage.setItem("genui_session_id", sid);
     }
-    setSessionId(sid);
-  }, []);
+    return sid;
+  });
+
+  // State for the Beacon Payload
+  const [pageMeta, setPageMetadata] = useState<{ name: string; description?: string }>({ name: "Unknown" });
+  const [views, setViews] = useState<ComponentView[]>([]);
+
+  // Use a ref to debounce the API call
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Register/Unregister logic
   const registerView = useCallback((view: ComponentView) => {
@@ -73,7 +71,11 @@ export function BeaconProvider({ children }: { children: React.ReactNode }) {
         sessionId,
         page: pageMeta.name,
         pathname,
-        views: views.map(({ id, ...rest }) => rest), // Remove internal ID before sending
+        views: views.map((view) => {
+          const { id, ...rest } = view;
+          void id;
+          return rest;
+        }), // Remove internal ID before sending
       };
 
       console.log("📡 [Beacon] Syncing:", payload);
@@ -90,16 +92,6 @@ export function BeaconProvider({ children }: { children: React.ReactNode }) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [sessionId, pathname, pageMeta, views]);
-
-  // Reset page meta on route change (optional, but good practice)
-  useEffect(() => {
-    setPageMetadata({ name: "Loading..." });
-    setViews([]); // Clear views on navigation? 
-    // ACTUALLY: We shouldn't clear views here blindly because components might remount 
-    // OR we might want to keep the "Dashboard" state if it persists in layout.
-    // Ideally, unmounting components call unregisterView, so this handles itself.
-    // But pageMeta should definitely reset or update.
-  }, [pathname]);
 
   return (
     <BeaconContext.Provider value={{ sessionId, views, setPageMetadata, registerView, unregisterView }}>

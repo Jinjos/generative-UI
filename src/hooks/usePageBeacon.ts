@@ -8,5 +8,5 @@ export function usePageBeacon(meta: { name: string; description?: string }) {
 
   useEffect(() => {
     setPageMetadata(meta);
-  }, [meta.name, meta.description, setPageMetadata]);
+  }, [meta, setPageMetadata]);
 }
