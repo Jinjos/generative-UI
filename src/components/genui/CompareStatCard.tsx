@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface CompareStatCardProps {
   title: string;
@@ -17,7 +18,38 @@ interface CompareResponse {
 }
 
 export const CompareStatCard = ({ title, apiEndpoint, filter }: CompareStatCardProps) => {
+  const { registerView, unregisterView } = useBeacon();
+  const id = React.useId();
   const { data, loading, error } = useDataFetcher<CompareResponse>(apiEndpoint);
+
+  React.useEffect(() => {
+    const queryString = apiEndpoint.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const paramsObj: Record<string, string> = {};
+    params.forEach((value, key) => { paramsObj[key] = value; });
+
+    const hasValue = !loading && !error;
+
+    registerView({
+      id,
+      component: "CompareStatCard",
+      title,
+      description: "Comparison stat card",
+      endpoint: apiEndpoint,
+      params: {
+        ...paramsObj,
+        filter,
+        comparison: hasValue ? {
+          metric: data?.metric,
+          gap: data?.gap,
+          entityA: data?.entityA,
+          entityB: data?.entityB
+        } : undefined
+      }
+    });
+
+    return () => unregisterView(id);
+  }, [id, apiEndpoint, title, filter, data, loading, error, registerView, unregisterView]);
 
   const isRate = data?.metric === "acceptance_rate";
 

@@ -70,6 +70,7 @@ export function BeaconProvider({ children }: { children: React.ReactNode }) {
       const payload = {
         sessionId,
         page: pageMeta.name,
+        pageDescription: pageMeta.description,
         pathname,
         views: views.map((view) => {
           const { id, ...rest } = view;

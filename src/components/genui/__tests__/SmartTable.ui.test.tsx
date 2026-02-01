@@ -2,7 +2,14 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { SmartTable } from '../SmartTable';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/components/genui/BeaconProvider', () => ({
+  useBeacon: () => ({
+    registerView: vi.fn(),
+    unregisterView: vi.fn(),
+  }),
+}));
 
 describe('SmartTable Pagination', () => {
   const columns = [

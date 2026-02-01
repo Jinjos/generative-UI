@@ -4,6 +4,7 @@ import React from "react";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
 import { getNestedValue } from "@/lib/utils/object";
 import { StatCard } from "@/components/ui/StatCard";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface KPIDefinition {
   key: string;
@@ -29,7 +30,51 @@ const formatValue = (val: unknown, format?: string) => {
 };
 
 export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
+  const { registerView, unregisterView } = useBeacon();
+  const id = React.useId();
   const { data, loading, error } = useDataFetcher<KPIDataResponse>(apiEndpoint);
+
+  const sourceData = (data?.summary || data || {}) as Record<string, unknown>;
+  const kpiValues = definitions.map((def) => {
+    let rawValue = getNestedValue(sourceData, def.key);
+    if (def.key.toLowerCase().includes('acceptance_rate') && (rawValue === null || rawValue === undefined)) {
+      rawValue = getNestedValue(sourceData, 'acceptance_rate');
+    }
+    return {
+      key: def.key,
+      label: def.label,
+      format: def.format,
+      rawValue,
+      displayValue: formatValue(rawValue, def.format)
+    };
+  });
+
+  React.useEffect(() => {
+    const queryString = apiEndpoint.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const paramsObj: Record<string, string> = {};
+    params.forEach((value, key) => { paramsObj[key] = value; });
+
+    const hasValue = !loading && !error;
+
+    registerView({
+      id,
+      component: "KPIGrid",
+      description: `KPI grid: ${definitions.map((def) => def.label).join(", ")}`,
+      endpoint: apiEndpoint,
+      params: {
+        ...paramsObj,
+        definitions: definitions.map((def) => ({
+          key: def.key,
+          label: def.label,
+          format: def.format
+        })),
+        values: hasValue ? kpiValues : undefined
+      }
+    });
+
+    return () => unregisterView(id);
+  }, [id, apiEndpoint, definitions, kpiValues, loading, error, registerView, unregisterView]);
 
   if (loading) {
     return (
@@ -45,9 +90,6 @@ export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
     return <div className="text-[var(--color-salmon)]">Failed to load KPIs</div>;
   }
 
-  // Fallback to searching for a 'summary' object if no specific path logic is added
-  const sourceData = (data.summary || data) as Record<string, unknown>;
-
   // Calculate gridCols based on definitions.length
   const kpiCount = definitions.length;
   const gridCols = 
@@ -58,26 +100,14 @@ export function KPIGrid({ apiEndpoint, definitions = [] }: KPIGridProps) {
 
   return (
     <div className={`grid gap-6 ${gridCols}`}>
-      {definitions.map((def) => {
-        const rawValue = (() => {
-          let value = getNestedValue(sourceData, def.key);
-          // Fallback logic for acceptance rate
-          if (def.key.toLowerCase().includes('acceptance_rate') && (value === null || value === undefined)) {
-            value = getNestedValue(sourceData, 'acceptance_rate');
-          }
-          return value;
-        })();
-        const displayValue = formatValue(rawValue, def.format);
-
-        return (
-          <StatCard 
-            key={def.label} 
-            title={def.label}
-            value={displayValue}
-            filter={def.format === 'suffix_k' ? 'Total' : 'Avg'}
-          />
-        );
-      })}
+      {kpiValues.map((item) => (
+        <StatCard 
+          key={item.label} 
+          title={item.label}
+          value={item.displayValue}
+          filter={item.format === 'suffix_k' ? 'Total' : 'Avg'}
+        />
+      ))}
     </div>
   );
 }

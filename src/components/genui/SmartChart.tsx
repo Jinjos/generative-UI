@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId } from "react";
+import React, { useEffect, useId, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
 import { useBeacon } from "@/components/genui/BeaconProvider";
@@ -37,6 +37,26 @@ export function SmartChart({
   const { registerView, unregisterView } = useBeacon();
   const id = useId();
 
+  // We use unknown first to handle the dynamic nature, then cast specific fields
+  const { data, loading, error } = useDataFetcher<ChartApiResponse | Array<Record<string, unknown>>>(apiEndpoint);
+
+  // Robustly extract the array data
+  const chartData = useMemo(() => {
+    if (Array.isArray(data)) return data;
+    return data?.trends || [];
+  }, [data]);
+
+  const { dataPreview, dataTruncated } = useMemo(() => {
+    if (loading || error) {
+      return { dataPreview: [] as Array<Record<string, unknown>>, dataTruncated: false };
+    }
+    const maxPoints = 200;
+    if (chartData.length > maxPoints) {
+      return { dataPreview: chartData.slice(-maxPoints), dataTruncated: true };
+    }
+    return { dataPreview: chartData, dataTruncated: false };
+  }, [chartData, loading, error]);
+
   // Register this component with the Context Beacon
   useEffect(() => {
     // Parse params from the endpoint URL
@@ -51,14 +71,22 @@ export function SmartChart({
       title,
       description: `Line chart showing ${series.map(s => s.label).join(", ")}`,
       endpoint: apiEndpoint,
-      params: paramsObj
+      params: {
+        ...paramsObj,
+        xAxisKey,
+        series: series.map((s) => ({
+          key: s.key,
+          label: s.label,
+          color: s.color
+        })),
+        dataPreview,
+        dataTruncated
+      }
     });
 
     return () => unregisterView(id);
-  }, [id, apiEndpoint, title, series, registerView, unregisterView]);
+  }, [id, apiEndpoint, title, series, xAxisKey, dataPreview, dataTruncated, registerView, unregisterView]);
 
-  // We use unknown first to handle the dynamic nature, then cast specific fields
-  const { data, loading, error } = useDataFetcher<ChartApiResponse | Array<Record<string, unknown>>>(apiEndpoint);
   if (loading) {
     return (
       <div className="flex h-[300px] w-full items-center justify-center rounded-[8px] bg-[var(--color-unit)] shadow-card">
@@ -74,11 +102,6 @@ export function SmartChart({
       </div>
     );
   }
-
-  // Robustly extract the array data
-  const chartData = Array.isArray(data) 
-    ? data 
-    : (data.trends || []);
 
   return (
     <div className="rounded-[8px] bg-[var(--color-unit)] p-6 shadow-card h-[340px] flex flex-col">

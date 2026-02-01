@@ -4,6 +4,7 @@ import React from "react";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
 import { getNestedValue } from "@/lib/utils/object";
 import { Chevron } from "@/components/ui/icons";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface ColumnDefinition {
   key: string;
@@ -73,9 +74,19 @@ const formatCell = (val: unknown, format?: string, columnKey?: string) => {
 };
 
 export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
+  const { registerView, unregisterView } = useBeacon();
+  const id = React.useId();
   const [page, setPage] = React.useState(1);
   const [sortKey, setSortKey] = React.useState<string | null>(null);
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc');
+
+  React.useEffect(() => {
+    console.log("📋 [SmartTable] Render:", {
+      title,
+      apiEndpoint,
+      columns: columns.map((col) => col.key),
+    });
+  }, [title, apiEndpoint, columns]);
   
   const pageSize = 25;
   const skip = (page - 1) * pageSize;
@@ -87,6 +98,54 @@ export function SmartTable({ apiEndpoint, title, columns }: SmartTableProps) {
   if (sortKey) {
     paginatedUrl += `&sortKey=${sortKey}&sortOrder=${sortOrder}`;
   }
+
+  React.useEffect(() => {
+    const [, queryString] = apiEndpoint.split("?");
+    const params = new URLSearchParams(queryString);
+    const paramsObj: Record<string, string> = {};
+    params.forEach((value, key) => { paramsObj[key] = value; });
+
+    registerView({
+      id,
+      component: "SmartTable",
+      title,
+      description: `Table with columns: ${columns.map((col) => col.label).join(", ")}`,
+      endpoint: apiEndpoint,
+      params: {
+        ...paramsObj,
+        columns: columns.map((col) => ({
+          key: col.key,
+          label: col.label,
+          format: col.format
+        })),
+        pagination: {
+          page,
+          pageSize,
+          skip
+        },
+        sort: {
+          key: sortKey,
+          order: sortOrder
+        },
+        effectiveEndpoint: paginatedUrl
+      }
+    });
+
+    return () => unregisterView(id);
+  }, [
+    id,
+    apiEndpoint,
+    title,
+    columns,
+    page,
+    pageSize,
+    skip,
+    sortKey,
+    sortOrder,
+    paginatedUrl,
+    registerView,
+    unregisterView
+  ]);
 
   const { data, loading, error } = useDataFetcher<TableDataResponse | Record<string, unknown>[]>(paginatedUrl);
 

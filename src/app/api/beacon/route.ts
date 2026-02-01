@@ -14,6 +14,7 @@ const ComponentViewSchema = z.object({
 const BeaconSchema = z.object({
   sessionId: z.string(), // We need to know WHO this is for
   page: z.string(),
+  pageDescription: z.string().optional(),
   pathname: z.string(),
   views: z.array(ComponentViewSchema).optional().default([]),
 });
