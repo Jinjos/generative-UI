@@ -4,6 +4,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { SmartChart } from '../SmartChart';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 
+vi.mock('@/components/genui/BeaconProvider', () => ({
+  useBeacon: () => ({
+    registerView: vi.fn(),
+    unregisterView: vi.fn(),
+  }),
+}));
+
 // Mock ResizeObserver which is required by Recharts ResponsiveContainer
 beforeAll(() => {
   global.ResizeObserver = class ResizeObserver {

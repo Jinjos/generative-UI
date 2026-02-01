@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useDataFetcher } from "@/hooks/useDataFetcher";
 import { getNestedValue } from "@/lib/utils/object";
+import { useBeacon } from "@/components/genui/BeaconProvider";
 
 interface SmartStatCardProps {
   title: string;
@@ -17,6 +18,8 @@ export const SmartStatCard = ({
   dataKey, 
   filter 
 }: SmartStatCardProps) => {
+  const { registerView, unregisterView } = useBeacon();
+  const id = React.useId();
   const { data, loading, error } = useDataFetcher<Record<string, unknown>>(apiEndpoint);
 
   const rawValue = (() => {
@@ -51,6 +54,32 @@ export const SmartStatCard = ({
   };
 
   const value = formatValue(rawValue);
+
+  useEffect(() => {
+    const [, queryString] = apiEndpoint.split("?");
+    const params = new URLSearchParams(queryString);
+    const paramsObj: Record<string, string> = {};
+    params.forEach((value, key) => { paramsObj[key] = value; });
+
+    const hasValue = !loading && !error;
+
+    registerView({
+      id,
+      component: "SmartStatCard",
+      title,
+      description: `Stat card showing ${dataKey}`,
+      endpoint: apiEndpoint,
+      params: {
+        ...paramsObj,
+        dataKey,
+        filter,
+        value: hasValue ? rawValue : undefined,
+        displayValue: hasValue ? value : undefined
+      }
+    });
+
+    return () => unregisterView(id);
+  }, [id, apiEndpoint, title, dataKey, filter, rawValue, value, loading, error, registerView, unregisterView]);
 
   if (error) {
     return (

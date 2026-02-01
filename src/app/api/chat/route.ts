@@ -461,6 +461,11 @@ async function fetchDataForEndpoint(endpoint: string): Promise<{ data: MetricDat
     model: params.get("model") || undefined,
     language: params.get("language") || undefined,
   };
+
+  console.log(
+    "🧭 [Server] fetchDataForEndpoint:",
+    JSON.stringify({ path, resolvedEndpoint, filters })
+  );
   
   const metricKeys = getMetricKeysFromParams(params);
 
@@ -614,6 +619,23 @@ const analyzeDataWithCodeTool = tool({
       return { error: "No data found at this endpoint." };
     }
 
+    const sample = Array.isArray(data) ? data[0] : data;
+    const sampleKeys =
+      sample && typeof sample === "object"
+        ? Object.keys(sample as Record<string, unknown>)
+        : [];
+    console.log("🧠 [Server] Data sample keys:", sampleKeys);
+
+    if (Array.isArray(data)) {
+      const interactionSamples = data.slice(0, 3).map((row) => {
+        if (row && typeof row === "object" && "interactions" in row) {
+          return (row as { interactions?: unknown }).interactions;
+        }
+        return undefined;
+      });
+      console.log("🧠 [Server] Data sample interactions:", interactionSamples);
+    }
+
     // 2. Run Safe Analysis - Ensure data is always an array
     const dataArray = Array.isArray(data) ? data : [data];
     const result = await AnalysisService.runAnalysis(dataArray, code);
@@ -716,7 +738,9 @@ const handler = async (req: Request) => {
         if (!chatId) return { error: "No Chat ID found" };
         
         const key = getContextKey(chatId);
+        const startedAt = Date.now();
         const contextStr = await redisClient.get(key);
+        console.log(`👁️ [Server] getCurrentPageView redis ms: ${Date.now() - startedAt}`);
         
         if (!contextStr) {
           console.log("👁️ [Server] No context found for key:", key);
@@ -770,18 +794,42 @@ const handler = async (req: Request) => {
     input: inputText,
   });
 
+  const requestStart = Date.now();
+  let lastStepAt = requestStart;
+  let stepIndex = 0;
+
+  const convertStart = Date.now();
+  const modelMessages = await convertToModelMessages(messages);
+  console.log(`[Request Handler] convertToModelMessages ms: ${Date.now() - convertStart}`);
+
   // Use a type-safe approach to enable multi-step reasoning.
   const streamOptions = {
     model: openai(modelId),
 
-    messages: await convertToModelMessages(messages),
+    messages: modelMessages,
     system: systemPrompt,
     tools: activeTools,
     stopWhen: stepCountIs(5), // Crucial: Allows AI to see tool output and then write text
     experimental_telemetry: {
       isEnabled: true,
     },
+    onStepFinish: (step: { toolCalls: unknown[]; usage: { totalTokens?: number } }) => {
+      const now = Date.now();
+      const stepMs = now - lastStepAt;
+      const totalMs = now - requestStart;
+      stepIndex += 1;
+      const totalTokens = step.usage.totalTokens ?? 0;
+
+      console.log(
+        `[AI Step] #${stepIndex} finished in ${stepMs}ms (total ${totalMs}ms). ` +
+        `toolCalls=${step.toolCalls.length}, tokens=${totalTokens}`
+      );
+
+      lastStepAt = now;
+    },
     onFinish: (result: { text: string; toolCalls?: unknown[]; usage: Record<string, unknown> }) => {
+      const totalMs = Date.now() - requestStart;
+      console.log(`[AI Done] total ${totalMs}ms`);
       const { text, toolCalls, usage } = result;
       // Update trace with final output after stream completes
       updateActiveObservation({

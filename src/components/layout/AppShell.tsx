@@ -18,7 +18,10 @@ interface NavItem {
 
 const baseNavItems: NavItem[] = [
   { label: "Dashboard", icon: "grid", href: "/" },
+  { label: "Agent", icon: "chat", href: "/agent" },
   { label: "Analytics", icon: "activity", href: "/analytics" },
+  { label: "Insights", icon: "tag", href: "/insights" },
+  { label: "Comparisons", icon: "bag", href: "/comparisons" },
   { label: "Users", icon: "users", href: "/users" },
   { label: "Teams", icon: "folder", href: "/teams" },
   { label: "Models", icon: "box", href: "/models" },
@@ -29,6 +32,7 @@ const baseNavItems: NavItem[] = [
 // Internal content that consumes the context
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isAgentPage = pathname === "/agent";
   const { 
     messages, 
     sendMessage, 
@@ -64,11 +68,16 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col h-full overflow-y-auto transition-all duration-300 ease-in-out">
-            <main className="flex-1 px-6 py-6 lg:px-8 flex flex-col w-full max-w-7xl mx-auto">
+            <main
+              className={cn(
+                "flex-1 px-6 py-6 lg:px-8 flex flex-col w-full",
+                isAgentPage ? "max-w-none" : "max-w-7xl mx-auto"
+              )}
+            >
               <TopBar 
                 isDark={isDark} 
                 onToggle={() => setIsDark(!isDark)} 
-                onChatToggle={() => setIsChatOpen(!isChatOpen)}
+                onChatToggle={isAgentPage ? undefined : () => setIsChatOpen(!isChatOpen)}
               />
               <div className="mt-6 flex-1">
                 {children}
@@ -76,21 +85,22 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
             </main>
           </div>
 
-          {/* Copilot Sidebar Container */}
-          <div
-            className={cn(
-              "transition-all duration-300 ease-in-out border-l border-[color:var(--color-stroke)]",
-              isChatOpen ? "w-[450px] opacity-100" : "w-0 opacity-0"
-            )}
-          >
-            <CopilotSidebar 
-              isOpen={isChatOpen} 
-              onClose={() => setIsChatOpen(false)}
-              messages={messages}
-              sendMessage={sendMessage}
-              status={status}
-            />
-          </div>
+          {!isAgentPage && (
+            <div
+              className={cn(
+                "transition-all duration-300 ease-in-out border-l border-[color:var(--color-stroke)]",
+                isChatOpen ? "w-[450px] opacity-100" : "w-0 opacity-0"
+              )}
+            >
+              <CopilotSidebar 
+                isOpen={isChatOpen} 
+                onClose={() => setIsChatOpen(false)}
+                messages={messages}
+                sendMessage={sendMessage}
+                status={status}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,14 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { SmartStatCard } from '../SmartStatCard';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/components/genui/BeaconProvider', () => ({
+  useBeacon: () => ({
+    registerView: vi.fn(),
+    unregisterView: vi.fn(),
+  }),
+}));
 
 describe('SmartStatCard', () => {
   it('renders loading state initially', () => {
